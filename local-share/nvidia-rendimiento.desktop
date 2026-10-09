@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=NVIDIA: rendimiento máximo
+Comment=Pone la GPU en el modo de energía de máximo rendimiento
+Exec=sh -c "nvidia-settings -a '[gpu:0]/GPUPowerMizerMode=1'"
+Icon=nvidia-settings
+Categories=System;
+Terminal=false

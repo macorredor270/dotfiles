@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Steam (optimizado)
+Comment=Steam con GameMode y MangoHud
+Exec=gamemoderun mangohud steam
+Icon=steam
+Categories=Game;
+Terminal=false
