@@ -15,5 +15,6 @@ for d in "$SRC"/config/*; do
 done
 link "$SRC/config/mimeapps.list" "$HOME/.config/mimeapps.list"
 for f in "$SRC"/local-bin/*; do link "$f" "$HOME/.local/bin/$(basename "$f")"; done
+for f in "$SRC"/local-share/*; do link "$f" "$HOME/.local/share/applications/$(basename "$f")"; done
 link "$SRC/.zshrc" "$HOME/.zshrc"
 echo "listo. copias previas en: $BK (si hubo algo)"
