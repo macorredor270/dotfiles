@@ -1,0 +1,17 @@
+#!/bin/bash
+# Lista redes Wi-Fi y conecta; pide contraseña si la red la necesita
+nmcli dev wifi rescan >/dev/null 2>&1
+list=$(nmcli -t -f SSID,SIGNAL,SECURITY dev wifi list | awk -F: '$1!=""{printf "%s  [%s%%] %s\n",$1,$2,($3=="" ? "abierta" : "🔒")}' | sort -u)
+sel=$(printf '%s\n' "$list" | rofi -dmenu -i -p "wifi") || exit 0
+ssid=$(printf '%s' "$sel" | sed -E 's/  \[[0-9]+%\].*$//')
+[ -z "$ssid" ] && exit 0
+if nmcli -g NAME connection show | grep -qx "$ssid"; then
+  nmcli connection up "$ssid"
+else
+  if printf '%s' "$sel" | grep -q "🔒"; then
+    pass=$(rofi -dmenu -password -p "clave $ssid" </dev/null) || exit 0
+    nmcli dev wifi connect "$ssid" password "$pass"
+  else
+    nmcli dev wifi connect "$ssid"
+  fi
+fi

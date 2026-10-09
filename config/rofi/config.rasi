@@ -1,0 +1,55 @@
+configuration {
+    modi: "drun,window,run";
+    show-icons: true;
+    font: "JetBrainsMono Nerd Font 11";
+    drun-display-format: "{name}";
+    icon-theme: "Papirus-Dark";
+}
+
+* {
+    bg: #0d0f1a;
+    fg: #c9d1f5;
+    accent: #5fd3ff;
+    bg-sel: #2a2f4a;
+    background-color: transparent;
+    text-color: @fg;
+}
+
+window {
+    background-color: @bg;
+    width: 420px;
+    border: 2px;
+    border-color: @accent;
+    border-radius: 6px;
+    padding: 8px;
+}
+
+mainbox {
+    children: [ inputbar, listview ];
+    spacing: 8px;
+}
+
+inputbar {
+    padding: 6px 8px;
+    children: [ prompt, entry ];
+}
+
+prompt {
+    text-color: @accent;
+    padding: 0 6px 0 0;
+}
+
+listview {
+    lines: 8;
+    spacing: 2px;
+}
+
+element {
+    padding: 6px 8px;
+    border-radius: 4px;
+}
+
+element selected {
+    background-color: @bg-sel;
+    text-color: @accent;
+}

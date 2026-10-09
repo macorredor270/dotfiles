@@ -1,0 +1,4 @@
+#!/bin/bash
+# Historial del portapapeles: elegir una entrada la vuelve a copiar
+sel=$(cliphist list | rofi -dmenu -i -p "clipboard") || exit 0
+[ -n "$sel" ] && printf '%s' "$sel" | cliphist decode | wl-copy

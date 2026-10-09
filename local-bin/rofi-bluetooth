@@ -1,0 +1,12 @@
+#!/bin/bash
+# Conectar o desconectar dispositivos Bluetooth emparejados
+bluetoothctl power on >/dev/null 2>&1
+list=$(bluetoothctl devices | sed 's/^Device //')
+sel=$(printf '%s\n' "$list" | rofi -dmenu -i -p "bluetooth") || exit 0
+mac=$(printf '%s' "$sel" | awk '{print $1}')
+[ -z "$mac" ] && exit 0
+if bluetoothctl info "$mac" | grep -q "Connected: yes"; then
+  bluetoothctl disconnect "$mac"
+else
+  bluetoothctl connect "$mac"
+fi

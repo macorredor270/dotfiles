@@ -1,0 +1,11 @@
+#!/bin/bash
+# Menú de sesión
+opts="bloquear\nsuspender\nreiniciar\napagar\ncerrar sesión"
+sel=$(printf "$opts\n" | rofi -dmenu -i -p "sesión") || exit 0
+case "$sel" in
+  bloquear)        hyprlock ;;
+  suspender)       systemctl suspend ;;
+  reiniciar)       systemctl reboot ;;
+  apagar)          systemctl poweroff ;;
+  "cerrar sesión") hyprctl dispatch exit ;;
+esac
