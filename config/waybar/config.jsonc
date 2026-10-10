@@ -96,6 +96,22 @@
     "on-click": "pavucontrol",
     "scroll-step": 5
   },
+  "backlight": {
+    "format": "{icon} {percent}%",
+    "format-icons": ["󰃞", "󰃟", "󰃠"],
+    "on-scroll-up": "brightnessctl set 5%+",
+    "on-scroll-down": "brightnessctl set 5%-",
+    "tooltip": false
+  },
+  "battery": {
+    "format": "{icon} {capacity}%",
+    "format-charging": "󰂄 {capacity}%",
+    "format-plugged": "󰚥 {capacity}%",
+    "format-icons": ["󰁺", "󰁼", "󰁾", "󰂀", "󰁹"],
+    "states": { "warning": 25, "critical": 12 },
+    "interval": 30,
+    "tooltip-format": "{timeTo} · {power}W"
+  },
   "tray": {
     "spacing": 10
   },
@@ -122,6 +138,8 @@
   "group/io": {
     "orientation": "inherit",
     "modules": [
+      "backlight",
+      "battery",
       "custom/icon-vol",
       "pulseaudio",
       "custom/icon-net",

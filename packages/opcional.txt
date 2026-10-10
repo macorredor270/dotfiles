@@ -1,0 +1,22 @@
+# Opcionales: NO se instalan por defecto. Usa:  ./install.sh --opcionales
+## Juegos y emulación
+steam
+prismlauncher
+wine
+winetricks
+gamescope
+## Desarrollo
+nodejs
+npm
+pnpm
+rust
+cmake
+ninja
+podman
+postgresql
+valkey
+## Multimedia y oficina
+easyeffects
+elisa
+gwenview
+libreoffice-fresh

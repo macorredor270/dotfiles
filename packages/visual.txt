@@ -1,0 +1,52 @@
+# Modo ligero (./install.sh --visual): solo lo necesario para ver el mismo entorno, sin drivers,
+# sin juegos y sin actualizar el sistema entero. Unos pocos cientos de MB en total.
+
+## Sesión
+hyprland
+hyprlock
+hypridle
+xdg-desktop-portal-hyprland
+xdg-desktop-portal-gtk
+polkit-kde-agent
+qt5-wayland
+qt6-wayland
+swaybg
+
+## Barra, lanzador, notificaciones, terminal
+waybar
+rofi
+mako
+libnotify
+kitty
+fastfetch
+
+## Capturas, portapapeles, brillo y volumen
+grim
+slurp
+wl-clipboard
+cliphist
+brightnessctl
+pavucontrol
+
+## Shell
+zsh
+zsh-autosuggestions
+zsh-syntax-highlighting
+starship
+zoxide
+fzf
+
+## Fuentes, iconos y tema
+inter-font
+ttf-jetbrains-mono-nerd
+papirus-icon-theme
+adwaita-icon-theme
+adw-gtk-theme
+
+## Audio y red (los scripts de rofi usan nmcli y bluetoothctl)
+pipewire
+pipewire-pulse
+wireplumber
+networkmanager
+bluez-utils
+nautilus

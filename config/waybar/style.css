@@ -74,11 +74,16 @@ window#waybar {
 #pulseaudio.muted { color: @dim; }
 #network { color: @fg; min-width: 62px; }
 #network.disconnected { color: @dim; }
+#backlight { color: @fg; }
+#battery { color: @fg; }
+#battery.warning { color: @crit; }
+#battery.critical { color: @crit; font-weight: 700; }
+#battery.charging, #battery.plugged { color: @accent; }
 
 #tray { padding: 0 8px; }
 
 /* Espaciado: aire entre icono y valor, y entre métricas */
-#cpu, #temperature, #custom-gpu, #memory, #disk, #pulseaudio, #network {
+#cpu, #temperature, #custom-gpu, #memory, #disk, #pulseaudio, #network, #backlight, #battery {
   margin-right: 22px;
   min-width: 34px;
 }

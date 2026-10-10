@@ -1,0 +1,101 @@
+# Paquetes oficiales (repos de Arch/CachyOS). Una línea por paquete; # = comentario.
+# El instalador solo instala los que faltan y se salta los que no existan en tus repos.
+
+## Base y herramientas
+base-devel
+git
+curl
+wget
+unzip
+jq
+htop
+vim
+nano
+tree
+fzf
+zoxide
+bc
+dmidecode
+usbutils
+pciutils
+inetutils
+openbsd-netcat
+rsync
+man-db
+
+## Sesión Hyprland
+hyprland
+hyprlock
+hypridle
+xdg-desktop-portal-hyprland
+xdg-desktop-portal-gtk
+polkit-kde-agent
+qt5-wayland
+qt6-wayland
+qt5ct
+qt6ct
+kvantum
+swaybg
+sddm
+
+## Barra, lanzador, notificaciones, terminal
+waybar
+rofi
+mako
+libnotify
+kitty
+fastfetch
+
+## Capturas, portapapeles, brillo, volumen
+grim
+slurp
+wl-clipboard
+cliphist
+brightnessctl
+pavucontrol
+imv
+
+## Shell
+zsh
+zsh-autosuggestions
+zsh-syntax-highlighting
+starship
+
+## Fuentes, iconos y tema (estilo GNOME oscuro)
+inter-font
+ttf-jetbrains-mono-nerd
+noto-fonts
+noto-fonts-cjk
+noto-fonts-emoji
+papirus-icon-theme
+adwaita-icon-theme
+adw-gtk-theme
+
+## Audio y vídeo
+pipewire
+pipewire-alsa
+pipewire-pulse
+wireplumber
+mpv
+
+## Red y Bluetooth
+networkmanager
+bluez
+bluez-utils
+
+## Archivos y sistema
+nautilus
+gvfs
+ntfs-3g
+dosfstools
+efibootmgr
+fwupd
+aria2
+
+## Rendimiento (planificador sched_ext y herramientas de juego)
+scx-scheds
+gamemode
+lib32-gamemode
+mangohud
+vulkan-tools
+libva-utils

@@ -1,0 +1,8 @@
+#!/bin/sh
+export MOZ_ENABLE_WAYLAND=1
+export MOZ_DISABLE_RDD_SANDBOX=1
+export NVD_BACKEND=direct
+export LIBVA_DRIVER_NAME=nvidia
+export MOZ_DRM_DEVICE=/dev/dri/renderD128
+export __GL_SHADER_DISK_CACHE_SKIP_CLEANUP=1
+exec /opt/zen-browser-bin/zen-bin "$@"

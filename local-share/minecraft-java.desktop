@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Minecraft Java (26.2)
+GenericName=Minecraft Java Edition
+Comment=Lanza directamente la instancia 26.2 de Prism Launcher
+Exec=gamemoderun prismlauncher -l 26.2
+Icon=org.prismlauncher.PrismLauncher
+Terminal=false
+Categories=Game;
+Keywords=minecraft;java;prism;
+StartupNotify=true

@@ -1,0 +1,7 @@
+[Unit]
+Description=sched_ext scheduler (scx_lavd, modo rendimiento)
+[Service]
+ExecStart=/usr/bin/scx_lavd --performance
+Restart=on-failure
+[Install]
+WantedBy=multi-user.target

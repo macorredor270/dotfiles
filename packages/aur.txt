@@ -1,0 +1,3 @@
+# Paquetes del AUR (se instalan con paru; si no está, el instalador lo compila).
+bibata-cursor-theme-bin
+zen-browser-bin

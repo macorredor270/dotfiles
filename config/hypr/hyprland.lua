@@ -7,7 +7,7 @@ local mod = "SUPER"
 ---- MONITORES ----
 ------------------
 hl.monitor({ output = "HDMI-A-1", mode = "1920x1080@75", position = "0x0", scale = 1 })
-hl.monitor({ output = "",         mode = "preferred",        position = "auto", scale = 1 })
+hl.monitor({ output = "",         mode = "preferred",        position = "auto", scale = "auto" })
 
 -----------------
 ---- AUTOSTART ----
@@ -16,19 +16,25 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("waybar")
     hl.exec_cmd("mako")
     hl.exec_cmd("hypridle")
-    hl.exec_cmd("swaybg -m fill -i /home/m1ke/Pictures/wallpapers/nuevo.png")
+    hl.exec_cmd("swaybg -m fill -i ~/Pictures/wallpapers/nuevo.png")
     hl.exec_cmd("/usr/lib/polkit-kde-authentication-agent-1")
     hl.exec_cmd("wl-paste --type text --watch cliphist store")
     hl.exec_cmd("wl-paste --type image --watch cliphist store")
 end)
 
---------------------------
----- ENTORNO (NVIDIA) ----
---------------------------
-hl.env("LIBVA_DRIVER_NAME", "nvidia")
-hl.env("GBM_BACKEND", "nvidia-drm")
-hl.env("__GLX_VENDOR_LIBRARY_NAME", "nvidia")
-hl.env("WLR_NO_HARDWARE_CURSORS", "1")
+--------------------------------
+---- ENTORNO (según la GPU) ----
+--------------------------------
+-- Las variables de NVIDIA solo se aplican si el driver propietario está cargado: en un equipo
+-- AMD o Intel (p. ej. un portátil) GBM_BACKEND=nvidia-drm daría pantalla negra.
+local nvidia = io.open("/proc/driver/nvidia/version", "r")
+if nvidia then
+    nvidia:close()
+    hl.env("LIBVA_DRIVER_NAME", "nvidia")
+    hl.env("GBM_BACKEND", "nvidia-drm")
+    hl.env("__GLX_VENDOR_LIBRARY_NAME", "nvidia")
+    hl.env("WLR_NO_HARDWARE_CURSORS", "1")
+end
 hl.env("XCURSOR_SIZE", "24")
 hl.env("XCURSOR_THEME", "Bibata-Modern-Ice")
 
@@ -141,6 +147,10 @@ for i = 1, 10 do
     bind(mod .. " + " .. key,         hl.dsp.focus({ workspace = i }))
     bind(mod .. " + SHIFT + " .. key, hl.dsp.window.move({ workspace = i }))
 end
+
+-- Cambiar de workspace con Super + rueda del ratón (r = relativo, incluye los vacíos)
+bind(mod .. " + mouse_down", hl.dsp.focus({ workspace = "r+1" }))
+bind(mod .. " + mouse_up",   hl.dsp.focus({ workspace = "r-1" }))
 
 -- Capturas: sin editor. Guardan en ~/Pictures/Screenshots y copian al portapapeles
 bind("CTRL + ALT + S",  run("~/.local/bin/screenshot region"))
