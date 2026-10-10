@@ -1,31 +1,95 @@
+@define-color bg #1a1a1a;
+@define-color hover #2e2e2e;
+@define-color fg #ececec;
+@define-color dim #6b6b6b;
+@define-color accent #ffffff;
+@define-color crit #c4574a;
+
 * {
-  font-family: "JetBrainsMono Nerd Font", monospace;
+  font-family: "Inter Display", "JetBrainsMono Nerd Font", sans-serif;
   font-size: 13px;
+  font-weight: 500;
   border: none;
   border-radius: 0;
   min-height: 0;
 }
 
 window#waybar {
-  background: #0d0f1a;
-  color: #c9d1f5;
+  background: @bg;
+  color: @fg;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
 }
 
+#custom-logo {
+  color: @accent;
+  font-size: 14px;
+  padding: 0 12px 0 12px;
+}
+
+#workspaces {
+  margin: 4px 0;
+}
 #workspaces button {
-  padding: 0 8px;
-  color: #4c5275;
+  color: @dim;
   background: transparent;
+  padding: 0 9px;
+  margin: 0 2px;
+  min-width: 14px;
+  border-radius: 6px;
 }
+#workspaces button:hover { color: @fg; }
+#workspaces button.active { color: @bg; background: @accent; font-weight: 700; }
+#workspaces button.urgent { color: @crit; }
 
-#workspaces button.active {
-  color: #5fd3ff;
-}
+#window { color: @dim; padding: 0 10px; }
 
-#clock,
-#network,
-#pulseaudio,
-#cpu,
-#memory,
-#tray {
-  padding: 0 10px;
+#clock { color: @fg; font-weight: 700; padding: 0 14px; }
+
+
+#custom-icon-cpu, #custom-icon-temp, #custom-icon-gpu, #custom-icon-mem, #custom-icon-disk, #custom-icon-net, #custom-icon-vol {
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 16px 16px;
+  min-width: 16px;
+  margin-left: 0;
+  margin-right: 7px;
 }
+#custom-icon-cpu  { background-image: url("/home/m1ke/.config/waybar/icons/cpu.svg"); }
+#custom-icon-temp { background-image: url("/home/m1ke/.config/waybar/icons/temp.svg"); }
+#custom-icon-gpu  { background-image: url("/home/m1ke/.config/waybar/icons/gpu.svg"); }
+#custom-icon-mem  { background-image: url("/home/m1ke/.config/waybar/icons/mem.svg"); }
+#custom-icon-disk { background-image: url("/home/m1ke/.config/waybar/icons/disk.svg"); }
+#custom-icon-vol  { background-image: url("/home/m1ke/.config/waybar/icons/vol.svg"); }
+#custom-icon-net  { background-image: url("/home/m1ke/.config/waybar/icons/wifi.svg"); }
+
+#cpu { color: @fg; }
+#temperature { color: @fg; }
+#temperature.critical { color: @crit; }
+#custom-gpu { color: @fg; }
+#custom-gpu.critical { color: @crit; }
+#memory { color: @fg; }
+#disk { color: @fg; }
+
+#pulseaudio { color: @fg; }
+#pulseaudio.muted { color: @dim; }
+#network { color: @fg; min-width: 62px; }
+#network.disconnected { color: @dim; }
+
+#tray { padding: 0 8px; }
+
+/* Espaciado: aire entre icono y valor, y entre métricas */
+#cpu, #temperature, #custom-gpu, #memory, #disk, #pulseaudio, #network {
+  margin-right: 22px;
+  min-width: 34px;
+}
+#network { margin-right: 14px; min-width: 66px; }
+#group-io { margin-left: 8px; }
+#tray { margin-left: 6px; padding: 0 14px 0 6px; }
+#group-metrics { margin-right: 4px; }
+
+/* Izquierda: más aire entre logo y workspaces */
+#custom-logo { padding: 0 16px 0 14px; }
+#workspaces { margin: 4px 0 4px 4px; }
+#workspaces button { margin: 0 4px; padding: 0 10px; }
+
+#clock { font-size: 14px; font-weight: 700; padding: 0 16px; }

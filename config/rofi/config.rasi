@@ -3,53 +3,99 @@ configuration {
     show-icons: true;
     font: "JetBrainsMono Nerd Font 11";
     drun-display-format: "{name}";
+    display-drun: "";
     icon-theme: "Papirus-Dark";
 }
 
 * {
-    bg: #0d0f1a;
-    fg: #c9d1f5;
-    accent: #5fd3ff;
-    bg-sel: #2a2f4a;
+    bg: #1a1a1a;
+    bg-alt: #242424;
+    fg: #ececec;
+    fg-dim: #6b6b6b;
+    accent: #ffffff;
+    bg-sel: #2a2a2a;
     background-color: transparent;
     text-color: @fg;
 }
 
 window {
-    background-color: @bg;
+    location: center;
     width: 420px;
-    border: 2px;
+    background-color: @bg;
+    border: 1px;
     border-color: @accent;
     border-radius: 6px;
-    padding: 8px;
+    padding: 10px;
 }
 
 mainbox {
+    border: 0px;
     children: [ inputbar, listview ];
     spacing: 8px;
 }
 
 inputbar {
-    padding: 6px 8px;
+    text-color: #ececec;
+    background-color: @bg-alt;
+    border-radius: 4px;
+    padding: 8px 10px;
+    spacing: 8px;
     children: [ prompt, entry ];
 }
 
 prompt {
-    text-color: @accent;
-    padding: 0 6px 0 0;
+    text-color: @fg-dim;
+    padding: 0 2px 0 0;
+}
+
+entry {
+    text-color: #ececec;
+    cursor-color: #ffffff;
+    placeholder: "Buscar…";
+    placeholder-color: @fg-dim;
 }
 
 listview {
+    border: 0px;
+    border-color: transparent;
+    padding: 0;
     lines: 8;
+    columns: 1;
     spacing: 2px;
+    scrollbar: false;
 }
 
 element {
-    padding: 6px 8px;
+    padding: 6px 10px;
     border-radius: 4px;
+    spacing: 12px;
 }
 
-element selected {
+element-icon {
+    size: 20px;
+}
+
+element-text {
+    text-color: inherit;
+    vertical-align: 0.5;
+}
+
+element normal.normal,
+element alternate.normal,
+element normal.active,
+element alternate.active,
+element normal.urgent,
+element alternate.urgent {
+    background-color: transparent;
+    text-color: @fg;
+}
+
+element selected.normal,
+element selected.active,
+element selected.urgent {
     background-color: @bg-sel;
     text-color: @accent;
 }
+
+case-indicator { text-color: @fg-dim; }
+message, textbox { text-color: @fg; }

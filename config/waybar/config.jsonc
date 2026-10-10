@@ -1,39 +1,139 @@
 {
   "layer": "top",
   "position": "top",
-  "height": 28,
-  "spacing": 8,
-  "modules-left": ["hyprland/workspaces"],
-  "modules-center": ["clock"],
-  "modules-right": ["network", "pulseaudio", "cpu", "memory", "tray"],
-
+  "height": 32,
+  "spacing": 0,
+  "margin-top": 0,
+  "margin-left": 0,
+  "margin-right": 0,
+  "modules-left": [
+    "custom/logo",
+    "hyprland/workspaces"
+  ],
+  "modules-center": [
+    "clock"
+  ],
+  "modules-right": [
+    "group/metrics",
+    "group/io",
+    "tray"
+  ],
+  "group/metrics": {
+    "orientation": "inherit",
+    "modules": [
+      "custom/icon-cpu",
+      "cpu",
+      "custom/icon-temp",
+      "temperature",
+      "custom/icon-gpu",
+      "custom/gpu",
+      "custom/icon-mem",
+      "memory",
+      "custom/icon-disk",
+      "disk"
+    ]
+  },
+  "custom/logo": {
+    "format": "",
+    "tooltip": false,
+    "on-click": "rofi -show drun"
+  },
   "hyprland/workspaces": {
     "format": "{id}",
-    "on-click": "activate"
+    "on-click": "activate",
+    "all-outputs": false,
+    "persistent-workspaces": {
+      "*": 6
+    }
   },
   "clock": {
-    "format": "{:%H:%M}",
-    "tooltip-format": "{:%A %d %B %Y}"
+    "format": "<span color='#6b6b6b'>{0:%a %d %b}</span>   {0:%H:%M}",
+    "format-alt": "{:%A %d %B %Y}",
+    "tooltip-format": "<tt>{calendar}</tt>",
+    "calendar": {
+      "format": {
+        "today": "<b>{}</b>"
+      }
+    }
   },
   "cpu": {
-    "format": "CPU {usage}%",
-    "interval": 5
+    "format": "{usage}%",
+    "interval": 2
+  },
+  "temperature": {
+    "hwmon-path": "/sys/class/hwmon/hwmon1/temp1_input",
+    "critical-threshold": 85,
+    "format": "{temperatureC}°",
+    "format-critical": "{temperatureC}°",
+    "interval": 3
+  },
+  "custom/gpu": {
+    "exec": "/home/m1ke/.config/waybar/scripts/gpu.sh",
+    "return-type": "json",
+    "interval": 3
   },
   "memory": {
-    "format": "RAM {}%",
-    "interval": 5
+    "format": "{percentage}%",
+    "interval": 3,
+    "tooltip-format": "{used:0.1f}G / {total:0.1f}G"
+  },
+  "disk": {
+    "path": "/",
+    "format": "{percentage_used}%",
+    "interval": 30,
+    "tooltip-format": "{used} / {total} en /"
   },
   "network": {
-    "format-wifi": "{essid}",
-    "format-ethernet": "ETH",
-    "format-disconnected": "off"
+    "format-wifi": "{bandwidthDownBytes}",
+    "format-ethernet": "{bandwidthDownBytes}",
+    "format-disconnected": "off",
+    "interval": 2,
+    "tooltip-format": "{ifname} {ipaddr}  ↓{bandwidthDownBytes}  ↑{bandwidthUpBytes}"
   },
   "pulseaudio": {
-    "format": "VOL {volume}%",
-    "format-muted": "MUTE",
-    "on-click": "pavucontrol"
+    "format": "{volume}%",
+    "format-muted": "mute",
+    "on-click": "pavucontrol",
+    "scroll-step": 5
   },
   "tray": {
-    "spacing": 8
+    "spacing": 10
+  },
+  "custom/icon-cpu": {
+    "format": " ",
+    "tooltip": false
+  },
+  "custom/icon-temp": {
+    "format": " ",
+    "tooltip": false
+  },
+  "custom/icon-gpu": {
+    "format": " ",
+    "tooltip": false
+  },
+  "custom/icon-mem": {
+    "format": " ",
+    "tooltip": false
+  },
+  "custom/icon-disk": {
+    "format": " ",
+    "tooltip": false
+  },
+  "group/io": {
+    "orientation": "inherit",
+    "modules": [
+      "custom/icon-vol",
+      "pulseaudio",
+      "custom/icon-net",
+      "network"
+    ]
+  },
+  "custom/icon-vol": {
+    "format": " ",
+    "tooltip": false
+  },
+  "custom/icon-net": {
+    "format": " ",
+    "tooltip": false
   }
 }

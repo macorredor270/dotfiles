@@ -14,7 +14,10 @@ for d in "$SRC"/config/*; do
   [ -d "$d" ] && link "$d" "$HOME/.config/$(basename "$d")"
 done
 link "$SRC/config/mimeapps.list" "$HOME/.config/mimeapps.list"
+link "$SRC/config/starship.toml" "$HOME/.config/starship.toml"
 for f in "$SRC"/local-bin/*; do link "$f" "$HOME/.local/bin/$(basename "$f")"; done
 for f in "$SRC"/local-share/*; do link "$f" "$HOME/.local/share/applications/$(basename "$f")"; done
 link "$SRC/.zshrc" "$HOME/.zshrc"
+link "$SRC/.bashrc" "$HOME/.bashrc"
+mkdir -p "$HOME/Pictures/wallpapers"; cp -n "$SRC"/wallpapers/* "$HOME/Pictures/wallpapers/"
 echo "listo. copias previas en: $BK (si hubo algo)"

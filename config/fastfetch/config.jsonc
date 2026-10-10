@@ -1,29 +1,97 @@
 {
   "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
   "logo": {
-    "type": "small",
-    "color": { "1": "blue", "2": "magenta" }
+    "type": "builtin",
+    "source": "arch",
+    "color": {
+      "1": "#5c9ae6",
+      "2": "#5c9ae6"
+    },
+    "padding": {
+      "top": 1,
+      "right": 4
+    }
   },
   "display": {
     "separator": "  ",
-    "color": { "keys": "blue", "title": "magenta" }
+    "key": {
+      "width": 10
+    },
+    "color": {
+      "separator": "90",
+      "output": "#d0d4da"
+    }
   },
   "modules": [
-    "title",
-    "separator",
-    "os",
-    "kernel",
-    "uptime",
-    "packages",
-    "shell",
-    "terminal",
-    "de",
-    "wm",
-    "cpu",
-    "gpu",
-    "memory",
-    "disk",
     "break",
-    "colors"
+    "break",
+    "break",
+    {
+      "type": "title",
+      "color": {
+        "user": "#5c9ae6",
+        "at": "90",
+        "host": "#5c9ae6"
+      }
+    },
+    {
+      "type": "separator",
+      "string": "─────────────────────"
+    },
+    {
+      "type": "os",
+      "key": "OS",
+      "keyColor": "#bcd6fa"
+    },
+    {
+      "type": "kernel",
+      "key": "Kernel",
+      "keyColor": "#a9cbf8"
+    },
+    {
+      "type": "uptime",
+      "key": "Uptime",
+      "keyColor": "#96c0f5"
+    },
+    {
+      "type": "packages",
+      "key": "Packages",
+      "keyColor": "#83b4f0"
+    },
+    {
+      "type": "shell",
+      "key": "Shell",
+      "keyColor": "#70a7eb"
+    },
+    {
+      "type": "terminal",
+      "key": "Terminal",
+      "keyColor": "#5c9ae6"
+    },
+    {
+      "type": "wm",
+      "key": "WM",
+      "keyColor": "#5490d8"
+    },
+    {
+      "type": "cpu",
+      "key": "CPU",
+      "keyColor": "#4c86ca"
+    },
+    {
+      "type": "gpu",
+      "key": "GPU",
+      "keyColor": "#447cbc"
+    },
+    {
+      "type": "memory",
+      "key": "Memory",
+      "keyColor": "#3d72ae"
+    },
+    {
+      "type": "disk",
+      "key": "Disk",
+      "keyColor": "#3668a0"
+    }
   ]
 }

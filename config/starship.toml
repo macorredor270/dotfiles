@@ -1,0 +1,62 @@
+"$schema" = 'https://starship.rs/config-schema.json'
+# Prompt de dos líneas con pastillas. Revertir: cp ~/.config/starship.toml.bak-v2 ~/.config/starship.toml
+add_newline = false
+format = "$directory${custom.github}${custom.gitlab}$git_branch$git_status$character"
+right_format = "$status$cmd_duration$time"
+command_timeout = 500
+
+[directory]
+format = "[](fg:#5c9ae6)[ $path]($style)[$read_only]($read_only_style)[](fg:#5c9ae6) "
+style = "bg:#5c9ae6 fg:#0b0d12 bold"
+read_only_style = "bg:#5c9ae6 fg:#0b0d12"
+home_symbol = " ~"
+read_only = " "
+truncation_length = 4
+truncation_symbol = "…/"
+
+[custom.github]
+command = "printf ''"
+when = "git remote get-url origin 2>/dev/null | grep -q github"
+format = "[$output ]($style)"
+style = "fg:#d0d4da"
+
+[custom.gitlab]
+command = "printf ''"
+when = "git remote get-url origin 2>/dev/null | grep -q gitlab"
+format = "[$output ]($style)"
+style = "fg:#d0d4da"
+
+[git_branch]
+symbol = " "
+format = "[](fg:#2c2c2c)[$symbol$branch]($style)[](fg:#2c2c2c) "
+style = "bg:#2c2c2c fg:#d0d4da"
+
+[git_status]
+format = "([$all_status$ahead_behind]($style) )"
+style = "fg:#e5c07b"
+conflicted = "="
+untracked = "?"
+modified = "!"
+staged = "+"
+ahead = "⇡"
+behind = "⇣"
+diverged = "⇕"
+
+[character]
+success_symbol = "[ ](bold #5c9ae6)"
+error_symbol = "[ ](bold #e06c75)"
+
+[status]
+disabled = false
+format = "[ $status ]($style)"
+style = "fg:#e06c75"
+
+[cmd_duration]
+min_time = 2000
+format = "[ $duration ]($style)"
+style = "fg:#6b7280"
+
+[time]
+disabled = false
+time_format = "%H:%M"
+format = "[](fg:#2c2c2c)[ $time ](bg:#2c2c2c fg:#d0d4da)[](fg:#2c2c2c)"

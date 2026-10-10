@@ -1,0 +1,13 @@
+#!/bin/sh
+# Captura sin editor: guarda en ~/Pictures/Screenshots, copia al portapapeles y avisa.
+# Uso: screenshot region | screenshot full
+dir="$HOME/Pictures/Screenshots"
+file="$dir/$(date +%F_%H-%M-%S).png"
+mkdir -p "$dir"
+case "$1" in
+  region) geom=$(slurp) || exit 0; grim -g "$geom" "$file" ;;
+  full)   grim "$file" ;;
+  *) echo "uso: screenshot region|full" >&2; exit 2 ;;
+esac || exit 1
+wl-copy --type image/png < "$file"
+notify-send -i "$file" "Captura guardada" "$file"
