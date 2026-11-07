@@ -47,6 +47,7 @@ imagemagick
 ## Barra, lanzador, notificaciones, terminal
 waybar
 rofi
+rofi-emoji
 mako
 libnotify
 kitty
@@ -86,6 +87,7 @@ mpv
 
 ## Red y Bluetooth
 networkmanager
+iw
 bluez
 bluez-utils
 

@@ -46,7 +46,7 @@
 | | |
 |---|---|
 | 🪟 **Hyprland** | Configuración en **Lua** (`hyprland.lua`): atajos, animaciones, reglas de monitor y ventanas. `hyprland.conf` queda de respaldo. |
-| 📊 **Waybar** | Una sola barra flotante casi opaca: 6 escritorios fijos, CPU y temperatura (con GPU y disco desplegables), RAM, audio y red en tiempo real (`net.sh`); batería y brillo en portátiles. |
+| 📊 **Waybar** | Una sola barra flotante casi opaca: 6 escritorios fijos, CPU y temperatura (con GPU y disco desplegables), RAM, audio y red en tiempo real (`net.sh`, con SSID y señal en el tooltip). |
 | 🔍 **Rofi** | Lanzador, selector de ventanas, portapapeles, emojis, wifi, bluetooth y menú de apagado. |
 | 🖥️ **kitty + zsh + starship** | Prompt de una línea con pastillas, autosugerencias, resaltado de sintaxis, `zoxide`, `fzf` y `fastfetch`. |
 | 🖼️ **Fondos** | Selector propio (quickshell): eliges las carpetas, buscas, pruebas sin guardar, cambia con fundido (`awww`) y recuerda el último. También pone el fondo del bloqueo. |
@@ -79,13 +79,13 @@ Para ver qué haría **sin cambiar nada** (ni pedir `sudo`):
 | Comando | Para qué sirve |
 |---|---|
 | `./install.sh` | **Todo**: paquetes, drivers según tu GPU, enlaces, servicios, tema y ajustes de rendimiento. |
-| `./install.sh --visual` | **Replicar solo el aspecto** en un portátil u otro equipo Arch: 44 paquetes, sin `-Syu`, sin drivers, sin tocar `/etc`. |
+| `./install.sh --visual` | **Replicar solo el aspecto** en un portátil u otro equipo Arch: 46 paquetes, sin `-Syu`, sin drivers, sin tocar `/etc`. |
 | `./install.sh --solo-config` | **No instala nada**: solo enlaza las configuraciones y aplica el tema. Vale en cualquier distro. |
 
 > En un equipo recién instalado, ejecuta antes `sudo pacman -Syu` si usas `--visual`, para no tener la base de datos de paquetes vieja.
 
-Más opciones: `--deshacer`, `--solo FASE` (`paquetes`, `copia`, `enlaces`, `equipo`, `zen`, `shell`, `servicios`, `tema`, `sistema`, `verificar`), `--sin-actualizar`, `--sin-paquetes`,
-`--sin-aur`, `--sin-enlaces`, `--sin-sistema`, `--sin-rendimiento` y `--opcionales` (Steam, Prism, Node, Rust, Podman…).
+Más opciones: `--deshacer [COPIA.tar.gz]`, `--solo FASE` (`paquetes`, `copia`, `enlaces`, `equipo`, `zen`, `shell`, `servicios`, `tema`, `sistema`, `verificar`), `--sin-actualizar`, `--sin-paquetes`,
+`--sin-aur`, `--sin-enlaces`, `--sin-sistema`, `--sin-rendimiento` y `--opcionales` (Steam, Prism, Wine, Node, Rust, Podman, PostgreSQL, LibreOffice…).
 
 ---
 
@@ -156,7 +156,7 @@ Desde la terminal: `fondo poner IMG`, `fondo siguiente`, `fondo carpetas añadir
 | **Zen / Shell / Servicios** | `user.js` en el perfil de Zen, zsh como shell y los servicios de red, Bluetooth, SDDM, PipeWire y aria2. |
 | **Tema** | `gsettings`: modo oscuro, `adw-gtk3-dark`, iconos Adwaita, cursor Bibata y fuentes. |
 | **Sistema** | Ajustes de `/etc`, cada uno **solo si aplica** a tu equipo (módulo del kernel, wifi, cpufreq, sched_ext). |
-| **Verificación** | Programas, fuentes, enlaces, sintaxis de `.zshrc`, `Hyprland --verify-config` y configuración de Rofi. |
+| **Verificación** | Programas (incluidos quickshell, awww, zenity y magick), fuentes (Inter, JetBrainsMono Nerd y DM Serif), enlaces, `equipo.lua`, el script `fondo`, sintaxis de `.zshrc`, `Hyprland --verify-config` y configuración de Rofi. |
 
 Todo queda registrado en `~/.dotfiles-install.log`.
 
@@ -164,7 +164,7 @@ Todo queda registrado en `~/.dotfiles-install.log`.
 
 - **GPU** — las variables de NVIDIA de `hyprland.lua` solo se aplican si el driver propietario está cargado. En AMD o Intel no se tocan: con ellas, la pantalla se quedaría en negro. El módulo de GPU de Waybar lee NVIDIA y AMD, y muestra `n/a` si no hay ninguna.
 - **Pantalla** — `hyprland.lua` no lleva monitores fijos: carga `equipo.lua`, que el instalador escribe en cada PC. Si instalas desde una TTY sin Hyprland, las pantallas quedan en automático; luego, ya dentro, `./install.sh --solo equipo` fija la mejor tasa. Los `.lua`/`.conf` de equipo no están en el repo y nunca se sobrescriben.
-- **Portátil** — la barra incluye batería y brillo. En un PC de sobremesa, Waybar los oculta solo.
+- **Portátil** — la barra está pensada para sobremesa (sin batería). Las teclas de brillo sí funcionan si el equipo las tiene (`brightnessctl`).
 - **Temperatura de la CPU** — si `hwmon1` no es la CPU, el instalador busca `k10temp`, `coretemp` o `zenpower` y ajusta la ruta.
 - **Rutas** — si tu usuario no es `m1ke`, los archivos con rutas escritas a mano se copian ya corregidos; el resto sigue enlazado al repo, así que un `git pull` actualiza atajos y estilo sin reinstalar.
 
@@ -193,7 +193,7 @@ dotfiles/
 
 ## ↩️ Deshacer
 
-- **Configuraciones:** `./install.sh --deshacer` quita los enlaces y restaura la última copia `~/.dotfiles-backup-FECHA.tar.gz`. Lo reemplazado archivo a archivo también queda en `~/.dotfiles-backup-FECHA/`.
+- **Configuraciones:** `./install.sh --deshacer` quita todo lo que puso el instalador (enlaces, copias ajustadas, fuentes, `equipo.lua`…; lo apunta en `~/.local/state/dotfiles/instalado`) y restaura la copia **más antigua**, la de antes de la primera instalación. Para volver a otra: `./install.sh --deshacer ~/.dotfiles-backup-FECHA.tar.gz`. Las copias usadas se apartan en `~/.dotfiles-backups-usadas/`.
 - **Rendimiento:** `sudo systemctl disable --now max-performance scx-sched` y borra `/etc/sysctl.d/99-rendimiento.conf`.
 
 ## 📝 Notas

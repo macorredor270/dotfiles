@@ -4,7 +4,7 @@
 #   ./install.sh                  hace todo: actualiza, instala paquetes, enlaza configs, servicios, tema y ajustes
 #   ./install.sh --simular        muestra lo que haría sin cambiar nada (no pide sudo)
 #   ./install.sh --solo FASE      solo una fase: paquetes | copia | enlaces | equipo | zen | shell | servicios | tema | sistema | verificar
-#   ./install.sh --deshacer       vuelve a dejar tus configuraciones como antes de la última instalación
+#   ./install.sh --deshacer [COPIA.tar.gz]   quita todo lo instalado y deja tus configs como antes de la primera instalación
 #
 # Opciones:
 #   --sin-actualizar   no hace pacman -Syu antes de instalar (cuidado: una base de datos vieja da errores 404)
@@ -28,6 +28,7 @@ SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 BK="$HOME/.dotfiles-backup-$STAMP"
 LOG="$HOME/.dotfiles-install.log"
+MANIFIESTO="$HOME/.local/state/dotfiles/instalado"   # todo lo que crea el instalador, para poder quitarlo
 ORIGEN_HOME="/home/m1ke"   # ruta que aparece escrita a mano en algunas configs
 
 VISUAL=0; SIMULAR=0; ACTUALIZAR=1; PAQUETES=1; AUR=1; ENLACES=1; SISTEMA=1; RENDIMIENTO=1; OPCIONALES=0; SOLO=""
@@ -49,10 +50,14 @@ run() {
   "$@" >>"$LOG" 2>&1
 }
 root() { run sudo "$@"; }
+apuntar() {   # apuntar RUTA: anota algo creado por el instalador (lo quitará --deshacer)
+  (( SIMULAR )) && return 0
+  mkdir -p "$(dirname "$MANIFIESTO")"; printf '%s\n' "$1" >>"$MANIFIESTO"
+}
 
 # ── argumentos ─────────────────────────────────────────────────────────────
 uso() { sed -n '2,29p' "$0" | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
-DESHACER=0
+DESHACER=0; DESHACER_ARCHIVO=""
 while (( $# )); do
   case "$1" in
     --simular) SIMULAR=1 ;;
@@ -66,7 +71,7 @@ while (( $# )); do
     --visual) VISUAL=1; ACTUALIZAR=0; SISTEMA=0; RENDIMIENTO=0 ;;
     --solo-config) VISUAL=1; ACTUALIZAR=0; PAQUETES=0; AUR=0; SISTEMA=0; RENDIMIENTO=0 ;;
     --solo) shift; SOLO="${1:-}" ;;
-    --deshacer) DESHACER=1 ;;
+    --deshacer) DESHACER=1; if [[ ${2:-} == *.tar.gz ]]; then DESHACER_ARCHIVO="$2"; shift; fi ;;
     -h|--ayuda|--help) uso 0 ;;
     *) echo "opción desconocida: $1"; uso 2 ;;
   esac; shift
@@ -250,7 +255,7 @@ enlazar() {     # enlazar ORIGEN DESTINO  (symlink; copia con rutas/sensor ajust
     if ! cmp -s "$tmp" "$from"; then   # este archivo necesita ajustes para este equipo
       if [[ -f $to && ! -L $to ]] && cmp -s "$tmp" "$to"; then rm -f "$tmp"; return 0; fi
       [[ -e $to || -L $to ]] && respaldar "$to"
-      run mkdir -p "$(dirname "$to")"; run install -m "$(stat -c %a "$from")" "$tmp" "$to"; rm -f "$tmp"
+      run mkdir -p "$(dirname "$to")"; run install -m "$(stat -c %a "$from")" "$tmp" "$to"; rm -f "$tmp"; apuntar "$to"
       nota "copiado con ajustes para este equipo (no enlazado): $to"; ENLAZADOS=$((ENLAZADOS+1)); return 0
     fi
     rm -f "$tmp"
@@ -258,7 +263,7 @@ enlazar() {     # enlazar ORIGEN DESTINO  (symlink; copia con rutas/sensor ajust
   if [[ -L $to && "$(readlink -f "$to")" == "$(readlink -f "$from")" ]]; then return 0; fi
   [[ -e $to || -L $to ]] && respaldar "$to"
   run mkdir -p "$(dirname "$to")"
-  run ln -s "$from" "$to"
+  run ln -s "$from" "$to"; apuntar "$to"
   ENLAZADOS=$((ENLAZADOS+1))
 }
 
@@ -281,14 +286,19 @@ fase_enlaces() {
   for f in "$SRC"/local-bin/*; do [[ -f $f ]] && enlazar "$f" "$HOME/.local/bin/$(basename "$f")"; done
   for f in "$SRC"/local-share/*.desktop; do [[ -f $f ]] && enlazar "$f" "$HOME/.local/share/applications/$(basename "$f")"; done
   run mkdir -p "$HOME/Pictures/wallpapers" "$HOME/Pictures/Screenshots" "$HOME/Descargas"
-  (( SIMULAR )) || cp -n "$SRC"/wallpapers/* "$HOME/Pictures/wallpapers/" 2>/dev/null || true
+  if ! (( SIMULAR )); then
+    for f in "$SRC"/wallpapers/*; do
+      [[ -e $HOME/Pictures/wallpapers/${f##*/} ]] && continue
+      cp "$f" "$HOME/Pictures/wallpapers/" && apuntar "$HOME/Pictures/wallpapers/${f##*/}"
+    done
+  fi
   # aria2 necesita la ruta de descargas escrita: se genera desde la plantilla
   if [[ -f "$SRC/templates/aria2.conf" ]]; then
     local out="$HOME/.config/aria2/aria2.conf" tmp; tmp="$(mktemp)"
     sed "s|@HOME@|$HOME|g" "$SRC/templates/aria2.conf" >"$tmp"
     if [[ -f $out ]] && cmp -s "$tmp" "$out"; then :; else
       [[ -e $out ]] && respaldar "$out"
-      run mkdir -p "$(dirname "$out")"; run install -m 644 "$tmp" "$out"; ENLAZADOS=$((ENLAZADOS+1))
+      run mkdir -p "$(dirname "$out")"; run install -m 644 "$tmp" "$out"; apuntar "$out"; ENLAZADOS=$((ENLAZADOS+1))
     fi; rm -f "$tmp"
   fi
   ok "enlaces: $ENLAZADOS nuevos o actualizados"
@@ -319,13 +329,33 @@ fase_copia() {
 }
 
 deshacer() {
-  local tar; tar="$(ls -t "$HOME"/.dotfiles-backup-*.tar.gz 2>/dev/null | head -1)"
-  [[ -n $tar ]] || { echo "no hay ninguna copia ~/.dotfiles-backup-*.tar.gz"; exit 1; }
+  local tar="$DESHACER_ARCHIVO" p n=0
+  # por defecto la copia MÁS ANTIGUA: la de antes de instalar estos dotfiles por primera vez
+  [[ -n $tar ]] || tar="$(ls -tr "$HOME"/.dotfiles-backup-*.tar.gz 2>/dev/null | head -1)"
+  [[ -n $tar && -f $tar ]] || { echo "no hay ninguna copia ~/.dotfiles-backup-*.tar.gz"; exit 1; }
   echo "Restaurando $tar"
-  # quita los enlaces que apuntan a este repo y devuelve los archivos originales
-  find "$HOME/.config" "$HOME/.local/bin" -maxdepth 5 -lname "$SRC/*" -print -delete 2>/dev/null | sed 's/^/  quitado: /'
-  find "$HOME" -maxdepth 1 -lname "$SRC/*" -print -delete 2>/dev/null | sed 's/^/  quitado: /'
-  tar -C "$HOME" -xzf "$tar" && echo "Listo: configuraciones restauradas. Cierra sesión y vuelve a entrar."
+  # 1) quita lo que creó el instalador (enlaces y copias ajustadas), según el registro
+  if [[ -f $MANIFIESTO ]]; then
+    while IFS= read -r p; do
+      [[ $p == "$HOME"/* ]] || continue                    # nunca nada fuera de tu carpeta
+      if [[ -e $p || -L $p ]]; then rm -rf -- "$p"; n=$((n+1)); fi
+      # carpetas que quedaron vacías (solo vacías, y nunca por encima de tu $HOME)
+      local d; d="$(dirname "$p")"
+      while [[ $d == "$HOME"/* ]] && rmdir -- "$d" 2>/dev/null; do d="$(dirname "$d")"; done
+    done < <(sort -u "$MANIFIESTO")
+  fi
+  # 2) enlaces sueltos al repo de instalaciones antiguas sin registro
+  while IFS= read -r p; do rm -f -- "$p"; n=$((n+1)); done < <(
+    find "$HOME/.config" "$HOME/.local/bin" "$HOME/.local/share/applications" -maxdepth 6 -lname "$SRC/*" 2>/dev/null
+    find "$HOME" -maxdepth 1 -lname "$SRC/*" 2>/dev/null)
+  echo "  quitados $n archivos y enlaces de estos dotfiles"
+  # 3) devuelve lo que había
+  tar -C "$HOME" -xzf "$tar" || { echo "no pude extraer $tar"; exit 1; }
+  # las copias usadas se apartan para que una próxima instalación empiece de cero
+  mkdir -p "$HOME/.dotfiles-backups-usadas"
+  mv "$HOME"/.dotfiles-backup-*.tar.gz "$HOME/.dotfiles-backups-usadas/" 2>/dev/null || true
+  rm -f "$MANIFIESTO"; rmdir -p --ignore-fail-on-non-empty "$(dirname "$MANIFIESTO")" 2>/dev/null || true
+  echo "Listo: configuraciones restauradas (copias apartadas en ~/.dotfiles-backups-usadas). Cierra sesión y vuelve a entrar."
   exit 0
 }
 
@@ -353,7 +383,9 @@ fase_equipo() {
     ok "pantallas: equipo.lua y equipo.conf ya existen (bórralos y repite --solo equipo para regenerarlos)"
   else
     local l_lua="" l_conf="" nombre modo escala
-    local cab="generado por install.sh el $(date +%F) en $(hostname 2>/dev/null || echo este equipo); no está en el repo, edítalo a tu gusto"
+    local modos cab equipo_nombre
+    equipo_nombre="$(cat /etc/hostname 2>/dev/null || hostname 2>/dev/null || echo 'este equipo')"
+    cab="generado por install.sh el $(date +%F) en $equipo_nombre; no está en el repo, edítalo a tu gusto"
     if modos="$(modos_monitores)" && [[ -n $modos ]]; then
       while read -r nombre modo escala; do
         l_lua+="hl.monitor({ output = \"$nombre\", mode = \"$modo\", position = \"auto\", scale = $escala })"$'\n'
@@ -370,8 +402,8 @@ fase_equipo() {
     if (( SIMULAR )); then
       nota "[sim] escribiría $lua y $conf:"; printf '%s' "$l_lua" | sed 's/^/      /'
     else
-      [[ -f $lua ]]  || printf -- '-- %s\n%s' "$cab" "$l_lua" >"$lua"
-      [[ -f $conf ]] || printf '# %s\n%s%s' "$cab" "$l_conf" "$nv_conf" >"$conf"
+      [[ -f $lua ]]  || { printf -- '-- %s\n%s' "$cab" "$l_lua" >"$lua"; apuntar "$lua"; }
+      [[ -f $conf ]] || { printf '# %s\n%s%s' "$cab" "$l_conf" "$nv_conf" >"$conf"; apuntar "$conf"; }
       ok "pantallas de este equipo en $lua (y equipo.conf para Hyprland sin Lua)"
     fi
   fi
@@ -382,6 +414,7 @@ fase_equipo() {
     while IFS= read -r -d '' f; do
       local to="$fu/${f#"$SRC"/fonts/}"
       [[ -f $to ]] && cmp -s "$f" "$to" && continue
+      [[ -e $to ]] || apuntar "$to"
       run install -Dm 644 "$f" "$to"; nuevas=1
     done < <(find "$SRC/fonts" -type f -print0)
     (( nuevas )) && { run fc-cache -f "$fu"; ok "fuentes propias instaladas en $fu"; } || ok "fuentes propias ya instaladas"
@@ -390,6 +423,7 @@ fase_equipo() {
   # Fondos: estado inicial, fondo del bloqueo y el fondo en pantalla si hay sesión
   local fondo="$HOME/.local/bin/fondo"
   if [[ -x $fondo ]] && ! (( SIMULAR )); then
+    [[ -d $HOME/.local/state/fondos ]] || apuntar "$HOME/.local/state/fondos"
     [[ -f $HOME/.local/state/fondos/bloqueo.png ]] || "$fondo" bloqueo "$HOME/Pictures/wallpapers/lock-torres.png" >>"$LOG" 2>&1 || true
     [[ -f $HOME/.local/state/fondos/bloqueo.png ]] && ok "fondo del bloqueo listo (cámbialo con la tecla b en el selector)" || aviso "no pude preparar el fondo del bloqueo"
     if [[ -n ${WAYLAND_DISPLAY:-} ]]; then "$fondo" restaurar >>"$LOG" 2>&1 && ok "fondo puesto con $(command -v awww >/dev/null && echo 'awww (fundido)' || echo swaybg)"; fi
@@ -417,6 +451,7 @@ fase_zen() {
   quiere zen || return 0
   [[ -f "$SRC/zen/user.js" ]] || return 0
   fase "Zen Browser"
+  if ! command -v zen-browser >/dev/null && ! command -v zen >/dev/null; then nota "Zen no está instalado: salto su user.js"; return 0; fi
   local p; p="$(perfil_zen || true)"
   if [[ -z "$p" || ! -d "$p" ]]; then
     aviso "no encuentro un perfil de Zen: ábrelo una vez y ejecuta ./install.sh --solo zen"; return 0

@@ -22,6 +22,7 @@ jq
 ## Barra, lanzador, notificaciones, terminal
 waybar
 rofi
+rofi-emoji
 mako
 libnotify
 kitty
@@ -55,5 +56,6 @@ pipewire
 pipewire-pulse
 wireplumber
 networkmanager
+iw
 bluez-utils
 nautilus
