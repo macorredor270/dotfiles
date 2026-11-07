@@ -1,0 +1,178 @@
+#!/usr/bin/env bash
+# fondo — fondos de pantalla: selector visual, carpetas propias, fondo del bloqueo y fundido al cambiar.
+#
+#   fondo                        abre el selector (Ctrl+Alt+W)
+#   fondo poner IMG [MODO]       pone IMG y lo recuerda
+#   fondo probar IMG [MODO]      lo pone sin guardarlo (vista previa)
+#   fondo restaurar              vuelve a poner el guardado (lo usa Hyprland al arrancar)
+#   fondo aleatorio | siguiente | anterior
+#   fondo modo [rellenar|ajustar|centrar]
+#   fondo bloqueo [IMG]          usa IMG (o el fondo actual) en hyprlock
+#   fondo carpetas               lista las carpetas donde busca
+#   fondo carpetas añadir RUTA   ·   fondo carpetas quitar RUTA   ·   fondo carpetas elegir
+#   fondo subcarpetas [si|no]    buscar también dentro de subcarpetas
+#   fondo lista                  imágenes encontradas, las más nuevas primero
+#   fondo estado
+#
+# Todo se guarda en ~/.local/state/fondos/. Usa awww (fundido) si está instalado; si no, swaybg.
+set -uo pipefail
+
+ESTADO="${XDG_STATE_HOME:-$HOME/.local/state}/fondos"
+UI="${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/fondos"
+LOCK_INICIAL="$HOME/Pictures/wallpapers/lock-torres.png"
+mkdir -p "$ESTADO"
+[[ -f $ESTADO/carpetas ]] || printf '%s\n' "$HOME/Pictures/wallpapers" >"$ESTADO/carpetas"
+[[ -f $ESTADO/modo ]] || echo rellenar >"$ESTADO/modo"
+[[ -f $ESTADO/subcarpetas ]] || echo no >"$ESTADO/subcarpetas"
+
+err()  { echo "fondo: $*" >&2; exit 1; }
+leer() { [[ -f $ESTADO/$1 ]] && head -n1 "$ESTADO/$1"; }
+abs()  { local r="${1/#\~/$HOME}"; realpath -m -- "$r"; }
+es_imagen() { [[ ${1,,} =~ \.(png|jpe?g|webp|gif|bmp)$ ]]; }
+
+modo_valido() {
+  case "${1:-}" in rellenar|ajustar|centrar) return 0 ;; *) return 1 ;; esac
+}
+
+# ── backend ────────────────────────────────────────────────────────────────
+daemon_awww() {
+  awww query >/dev/null 2>&1 && return 0
+  setsid -f awww-daemon >/dev/null 2>&1
+  local i; for i in $(seq 40); do awww query >/dev/null 2>&1 && return 0; sleep 0.1; done
+  return 1
+}
+
+aplicar() {   # aplicar IMG MODO DURACION
+  local img="$1" modo="$2" dur="${3:-0.7}"
+  if command -v awww >/dev/null && daemon_awww; then
+    local r=crop; case "$modo" in ajustar) r=fit ;; centrar) r=no ;; esac
+    local fps=60; command -v hyprctl >/dev/null && fps="$(hyprctl monitors -j 2>/dev/null | grep -o '"refreshRate": *[0-9]*' | head -1 | grep -o '[0-9]*$' || echo 60)"
+    awww img "$img" --resize "$r" --fill-color 101010 \
+      --transition-type fade --transition-duration "$dur" --transition-fps "${fps:-60}" >/dev/null 2>&1 || return 1
+    local viejos; viejos="$(pidof swaybg || true)"; [[ -n $viejos ]] && kill $viejos 2>/dev/null
+  else
+    local m=fill; case "$modo" in ajustar) m=fit ;; centrar) m=center ;; esac
+    local viejos; viejos="$(pidof swaybg || true)"
+    setsid -f swaybg -m "$m" -c '#101010' -i "$img" >/dev/null 2>&1
+    sleep 0.4   # que el nuevo se pinte antes de quitar el viejo (sin parpadeo)
+    [[ -n $viejos ]] && kill $viejos 2>/dev/null
+  fi
+  return 0
+}
+
+poner() {     # poner IMG [MODO] [guardar=1]
+  local img; img="$(abs "$1")"; local modo="${2:-$(leer modo)}" guardar="${3:-1}"
+  [[ -f $img ]] || err "no existe: $img"
+  modo_valido "$modo" || err "modo desconocido: $modo (rellenar, ajustar o centrar)"
+  if (( guardar )); then
+    aplicar "$img" "$modo" 0.7 || err "no se pudo poner el fondo"
+    echo "$img" >"$ESTADO/actual"; echo "$modo" >"$ESTADO/modo"
+  else
+    aplicar "$img" "$modo" 0.25 || err "no se pudo poner el fondo"
+  fi
+}
+
+# ── carpetas e imágenes ────────────────────────────────────────────────────
+carpetas() { grep -v '^\s*$' "$ESTADO/carpetas" 2>/dev/null || true; }
+
+lista() {
+  local -a dirs=() prof=(-maxdepth 1)
+  mapfile -t dirs < <(carpetas | while read -r d; do [[ -d $d ]] && echo "$d"; done)
+  (( ${#dirs[@]} )) || return 0
+  [[ "$(leer subcarpetas)" == si ]] && prof=()
+  find -L "${dirs[@]}" "${prof[@]}" -type f \
+    \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' -o -iname '*.gif' -o -iname '*.bmp' \) \
+    -not -path '*/.*' -printf '%T@\t%p\n' 2>/dev/null | sort -rn | cut -f2- | awk '!vistos[$0]++'
+}
+
+carpeta_add() {
+  local d; d="$(abs "$1")"
+  [[ -d $d ]] || err "no es una carpeta: $d"
+  grep -qxF -- "$d" "$ESTADO/carpetas" || echo "$d" >>"$ESTADO/carpetas"
+  echo "$d"
+}
+carpeta_del() {
+  local d; d="$(abs "$1")"
+  grep -vxF -- "$d" "$ESTADO/carpetas" >"$ESTADO/carpetas.tmp" || true
+  mv "$ESTADO/carpetas.tmp" "$ESTADO/carpetas"
+}
+carpeta_elegir() {
+  command -v zenity >/dev/null || err "falta zenity para el diálogo de carpetas"
+  local d; d="$(zenity --file-selection --directory --title='Añadir carpeta de fondos' --filename="$HOME/Pictures/" 2>/dev/null)" || exit 1
+  carpeta_add "$d"
+}
+
+vecino() {    # vecino +1|-1 : siguiente o anterior en la lista, dando la vuelta
+  local paso="$1" act; act="$(leer actual)"
+  local -a todas=(); mapfile -t todas < <(lista)
+  (( ${#todas[@]} )) || err "no hay imágenes en tus carpetas"
+  local i n=${#todas[@]} pos=-1
+  for i in "${!todas[@]}"; do [[ ${todas[i]} == "$act" ]] && { pos=$i; break; }; done
+  poner "${todas[$(( (pos + paso + n) % n ))]}"
+}
+
+# ── fondo del bloqueo (hyprlock) ───────────────────────────────────────────
+bloqueo() {
+  local img; img="$(abs "${1:-$(leer actual)}")"
+  [[ -f $img ]] || err "no existe: $img"
+  local tmp="$ESTADO/.bloqueo.tmp.png"
+  if command -v magick >/dev/null; then
+    magick "${img}[0]" -auto-orient -resize '3840x2160>' "png:$tmp" 2>/dev/null || err "no pude convertir $img"
+  elif [[ ${img,,} == *.png ]]; then cp -f "$img" "$tmp"
+  else err "hyprlock necesita PNG y no está ImageMagick para convertirlo"; fi
+  mv -f "$tmp" "$ESTADO/bloqueo.png"
+  echo "$img" >"$ESTADO/bloqueo-origen"
+}
+
+restaurar() {
+  if [[ ! -f $ESTADO/bloqueo.png && -f $LOCK_INICIAL ]]; then bloqueo "$LOCK_INICIAL" || true; fi
+  local act; act="$(leer actual || true)"
+  if [[ -z $act || ! -f $act ]]; then act="$(lista | head -n1)"; fi
+  [[ -n $act ]] || err "no hay ningún fondo guardado ni imágenes en tus carpetas"
+  poner "$act"
+}
+
+estado() {
+  echo "actual=$(leer actual || true)"
+  echo "modo=$(leer modo)"
+  echo "subcarpetas=$(leer subcarpetas)"
+  echo "bloqueo=$(leer bloqueo-origen || true)"
+  echo "backend=$(command -v awww >/dev/null && echo awww || echo swaybg)"
+  carpetas | sed 's/^/carpeta=/'
+}
+
+# ── principal ──────────────────────────────────────────────────────────────
+cmd="${1:-abrir}"; shift || true
+case "$cmd" in
+  abrir|selector)
+    command -v quickshell >/dev/null || err "falta quickshell para el selector"
+    pgrep -u "$UID" -x quickshell -a 2>/dev/null | grep -q -- "$UI" && exit 0   # ya está abierto
+    exec quickshell -n -p "$UI" ;;
+  poner)      [[ -n ${1:-} ]] || err "uso: fondo poner IMG [MODO]"; poner "$1" "${2:-}" 1 ;;
+  probar)     [[ -n ${1:-} ]] || err "uso: fondo probar IMG [MODO]"; poner "$1" "${2:-}" 0 ;;
+  restaurar)  restaurar ;;
+  aleatorio)  img="$(lista | shuf -n1)"; [[ -n $img ]] || err "no hay imágenes"; poner "$img" ;;
+  siguiente)  vecino 1 ;;
+  anterior)   vecino -1 ;;
+  modo)
+    if [[ -z ${1:-} ]]; then leer modo
+    else modo_valido "$1" || err "modo desconocido: $1"; echo "$1" >"$ESTADO/modo"
+         act="$(leer actual || true)"; [[ -f $act ]] && aplicar "$act" "$1" 0.3; fi ;;
+  subcarpetas)
+    case "${1:-}" in si|no) echo "$1" >"$ESTADO/subcarpetas" ;; "") leer subcarpetas ;; *) err "uso: fondo subcarpetas si|no" ;; esac ;;
+  bloqueo)    bloqueo "${1:-}" ;;
+  carpetas|carpeta)
+    sub="${1:-}"; shift || true
+    case "$sub" in
+      ""|lista)        carpetas ;;
+      añadir|anadir|add) [[ -n ${1:-} ]] || err "uso: fondo carpetas añadir RUTA"; carpeta_add "$1" ;;
+      quitar|del)      [[ -n ${1:-} ]] || err "uso: fondo carpetas quitar RUTA"; carpeta_del "$1" ;;
+      elegir)          carpeta_elegir ;;
+      *) err "uso: fondo carpetas [añadir RUTA | quitar RUTA | elegir]" ;;
+    esac ;;
+  lista)      lista ;;
+  estado)     estado ;;
+  -h|--help|ayuda) sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//' ;;
+  *)          # «fondo ruta/a/imagen.jpg» también vale
+    if [[ -f $cmd ]] && es_imagen "$cmd"; then poner "$cmd" "${1:-}" 1; else err "orden desconocida: $cmd (fondo ayuda)"; fi ;;
+esac

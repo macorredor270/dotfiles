@@ -46,3 +46,8 @@ export PATH="$HOME/src/depot_tools:$PATH"
 if [ -t 1 ] && [ -z "$ZSH_VERSION" ]; then
   exec zsh
 fi
+
+# Modo bestia (solo si los scripts están en este equipo)
+if command -v bestia-on >/dev/null; then
+  alias bestia-on='sudo bestia-on' bestia-off='sudo bestia-off' bestia-status='sudo bestia-status'
+fi

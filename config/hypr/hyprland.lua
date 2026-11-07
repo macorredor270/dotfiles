@@ -6,8 +6,12 @@ local mod = "SUPER"
 ------------------
 ---- MONITORES ----
 ------------------
-hl.monitor({ output = "HDMI-A-1", mode = "1920x1080@75", position = "0x0", scale = 1 })
-hl.monitor({ output = "",         mode = "preferred",        position = "auto", scale = "auto" })
+-- Cada PC tiene sus pantallas en equipo.lua (lo genera install.sh y no va al repo).
+-- Si no existe, cualquier pantalla usa su resolución preferida.
+local equipo = os.getenv("HOME") .. "/.config/hypr/equipo.lua"
+local f = io.open(equipo, "r")
+if f then f:close(); dofile(equipo) end
+hl.monitor({ output = "", mode = "preferred", position = "auto", scale = "auto" })
 
 -----------------
 ---- AUTOSTART ----
@@ -16,7 +20,7 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("waybar")
     hl.exec_cmd("mako")
     hl.exec_cmd("hypridle")
-    hl.exec_cmd("swaybg -m fill -i ~/Pictures/wallpapers/nuevo.png")
+    hl.exec_cmd("~/.local/bin/fondo restaurar")   -- último fondo elegido (awww, o swaybg si no está)
     hl.exec_cmd("/usr/lib/polkit-kde-authentication-agent-1")
     hl.exec_cmd("wl-paste --type text --watch cliphist store")
     hl.exec_cmd("wl-paste --type image --watch cliphist store")
@@ -43,6 +47,7 @@ hl.env("XCURSOR_THEME", "Bibata-Modern-Ice")
 ---------------------
 hl.config({
     general = {
+        allow_tearing = true,
         gaps_in  = 4,
         gaps_out = 8,
         border_size = 2,
@@ -75,6 +80,8 @@ hl.config({
         },
     },
 
+    render = { direct_scanout = 2 },
+
     animations = { enabled = true },
 
     dwindle = { preserve_split = true },
@@ -101,8 +108,11 @@ hl.animation({ leaf = "workspaces", enabled = true, speed = 1.5, bezier = "snap"
 hl.animation({ leaf = "border",     enabled = true, speed = 2,   bezier = "snap" })
 hl.animation({ leaf = "layers",     enabled = true, speed = 1.5, bezier = "snap", style = "fade" })
 
+-- CS2 sin VSync: presentar en cuanto esta listo el frame (tearing), para pasar de 75 FPS
+hl.window_rule({ name = "cs2-immediate", match = { class = "^cs2$" }, immediate = true })
+
 -- Blur también en la barra y el lanzador
-hl.layer_rule({ name = "blur-waybar", match = { namespace = "waybar" }, blur = true })
+hl.layer_rule({ name = "blur-waybar", match = { namespace = "waybar" }, blur = true, ignore_alpha = 0.3 })  -- ignore_alpha: el blur respeta las esquinas redondeadas
 hl.layer_rule({ name = "blur-rofi",   match = { namespace = "rofi" },   blur = true })
 
 -------------------
@@ -155,17 +165,19 @@ bind(mod .. " + mouse_up",   hl.dsp.focus({ workspace = "r-1" }))
 -- Capturas: sin editor. Guardan en ~/Pictures/Screenshots y copian al portapapeles
 bind("CTRL + ALT + S",  run("~/.local/bin/screenshot region"))
 bind("CTRL + ALT + K",  run("~/.local/bin/screenshot full"))
+bind("CTRL + ALT + W",  run("~/.local/bin/fondo"))
+bind(mod .. " + SHIFT + W", run("~/.local/bin/fondo aleatorio"))
 bind(mod .. " + S",     run("~/.local/bin/screenshot region"))
 
--- Volumen con Ctrl+Alt+flechas (±5%, máximo 90%)
-bind("CTRL + ALT + up",   run("wpctl set-volume -l 0.9 @DEFAULT_AUDIO_SINK@ 5%+"), { locked = true, repeating = true })
+-- Volumen con Ctrl+Alt+flechas (±5%, máximo 100%)
+bind("CTRL + ALT + up",   run("wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+"), { locked = true, repeating = true })
 bind("CTRL + ALT + down", run("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"),        { locked = true, repeating = true })
 
 -- Sesión
 bind(mod .. " + SHIFT + E", hl.dsp.exit())
 
 -- Multimedia
-bind("XF86AudioRaiseVolume",  run("wpctl set-volume -l 0.9 @DEFAULT_AUDIO_SINK@ 5%+"), { locked = true, repeating = true })
+bind("XF86AudioRaiseVolume",  run("wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+"), { locked = true, repeating = true })
 bind("XF86AudioLowerVolume",  run("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"),        { locked = true, repeating = true })
 bind("XF86AudioMute",         run("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"),       { locked = true })
 bind("XF86MonBrightnessUp",   run("brightnessctl set 5%+"),                            { locked = true, repeating = true })

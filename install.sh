@@ -3,7 +3,8 @@
 #
 #   ./install.sh                  hace todo: actualiza, instala paquetes, enlaza configs, servicios, tema y ajustes
 #   ./install.sh --simular        muestra lo que haría sin cambiar nada (no pide sudo)
-#   ./install.sh --solo FASE      solo una fase: paquetes | enlaces | zen | shell | servicios | tema | sistema | verificar
+#   ./install.sh --solo FASE      solo una fase: paquetes | copia | enlaces | equipo | zen | shell | servicios | tema | sistema | verificar
+#   ./install.sh --deshacer       vuelve a dejar tus configuraciones como antes de la última instalación
 #
 # Opciones:
 #   --sin-actualizar   no hace pacman -Syu antes de instalar (cuidado: una base de datos vieja da errores 404)
@@ -16,8 +17,11 @@
 #   --visual           modo ligero: solo packages/visual.txt, sin -Syu, sin drivers ni ajustes de /etc
 #   --solo-config      solo enlaza configuraciones y tema; no instala ningún paquete (válido en cualquier distro)
 #
-# Es idempotente: se puede repetir sin romper nada. Lo que ya existe se guarda en
-# ~/.dotfiles-backup-FECHA/ antes de reemplazarlo. El registro queda en ~/.dotfiles-install.log
+# Es idempotente: se puede repetir sin romper nada. Antes de tocar nada guarda una copia completa en
+# ~/.dotfiles-backup-FECHA.tar.gz (y lo reemplazado, en ~/.dotfiles-backup-FECHA/). Registro: ~/.dotfiles-install.log
+#
+# En cada PC genera ~/.config/hypr/equipo.lua y equipo.conf (pantallas con su mejor tasa de refresco,
+# variables de NVIDIA si hace falta): así hyprland.lua/.conf del repo valen en cualquier equipo.
 set -Eeuo pipefail
 
 SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -27,7 +31,7 @@ LOG="$HOME/.dotfiles-install.log"
 ORIGEN_HOME="/home/m1ke"   # ruta que aparece escrita a mano en algunas configs
 
 VISUAL=0; SIMULAR=0; ACTUALIZAR=1; PAQUETES=1; AUR=1; ENLACES=1; SISTEMA=1; RENDIMIENTO=1; OPCIONALES=0; SOLO=""
-OKN=0; AVISOS=0; FALLOS=0
+OKN=0; AVISOS=0; FALLOS=0; ENLAZADOS=0
 
 # ── mensajes ───────────────────────────────────────────────────────────────
 c_ok=$'\033[32m'; c_warn=$'\033[33m'; c_bad=$'\033[31m'; c_dim=$'\033[2m'; c_off=$'\033[0m'
@@ -47,7 +51,8 @@ run() {
 root() { run sudo "$@"; }
 
 # ── argumentos ─────────────────────────────────────────────────────────────
-uso() { sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
+uso() { sed -n '2,29p' "$0" | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
+DESHACER=0
 while (( $# )); do
   case "$1" in
     --simular) SIMULAR=1 ;;
@@ -61,6 +66,7 @@ while (( $# )); do
     --visual) VISUAL=1; ACTUALIZAR=0; SISTEMA=0; RENDIMIENTO=0 ;;
     --solo-config) VISUAL=1; ACTUALIZAR=0; PAQUETES=0; AUR=0; SISTEMA=0; RENDIMIENTO=0 ;;
     --solo) shift; SOLO="${1:-}" ;;
+    --deshacer) DESHACER=1 ;;
     -h|--ayuda|--help) uso 0 ;;
     *) echo "opción desconocida: $1"; uso 2 ;;
   esac; shift
@@ -265,7 +271,10 @@ fase_enlaces() {
   local f rel
   # Todo lo de config/ va a ~/.config, archivo por archivo (así no se pisa lo que haya al lado)
   while IFS= read -r -d '' f; do
-    rel="${f#"$SRC"/config/}"; enlazar "$f" "$HOME/.config/$rel"
+    rel="${f#"$SRC"/config/}"
+    # mimeapps.list lo reescriben las propias apps: solo se pone si el equipo aún no tiene uno
+    [[ $rel == mimeapps.list && -e $HOME/.config/$rel ]] && continue
+    enlazar "$f" "$HOME/.config/$rel"
   done < <(find "$SRC/config" -type f -print0)
   enlazar "$SRC/.zshrc" "$HOME/.zshrc"
   enlazar "$SRC/.bashrc" "$HOME/.bashrc"
@@ -285,6 +294,115 @@ fase_enlaces() {
   ok "enlaces: $ENLAZADOS nuevos o actualizados"
   [[ -d $BK ]] && ok "copias de lo anterior en: $BK"
   case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) aviso "$HOME/.local/bin no está en tu PATH (lo añade .zshrc al abrir una terminal nueva)";; esac
+}
+
+# ── copia de seguridad completa (antes de enlazar nada) ─────────────────────
+RUTAS_COPIA=(.config/hypr .config/waybar .config/rofi .config/kitty .config/mako .config/fastfetch
+  .config/quickshell .config/pipewire .config/gtk-3.0 .config/gtk-4.0 .config/systemd/user/aria2.service
+  .config/starship.toml .config/mimeapps.list .zshrc .bashrc .local/state/fondos)
+fase_copia() {
+  quiere copia || { [[ $SOLO == enlaces ]] || return 0; }
+  (( ENLACES )) || return 0
+  fase "Copia de seguridad"
+  local -a hay=() r; for r in "${RUTAS_COPIA[@]}"; do [[ -e $HOME/$r ]] && hay+=("$r"); done
+  # de ~/.local/bin solo los scripts que este repo va a reemplazar (ahí suele haber binarios enormes)
+  for r in "$SRC"/local-bin/*; do [[ -e $HOME/.local/bin/${r##*/} ]] && hay+=(".local/bin/${r##*/}"); done
+  (( ${#hay[@]} )) || { ok "no hay configuraciones previas que guardar"; return 0; }
+  local tar="$HOME/.dotfiles-backup-$STAMP.tar.gz"
+  # -h guarda el contenido real aunque ya sean enlaces a este repo; se saltan las carpetas bak/ y copias viejas
+  if run tar -C "$HOME" -czhf "$tar" --exclude='*/bak' --exclude='*.bak*' --exclude='*/node_modules' "${hay[@]}"; then
+    ok "copia completa: $tar"
+    nota "para volver atrás: ./install.sh --deshacer"
+  else
+    fallo "no se pudo hacer la copia de seguridad: no sigo para no perder nada"; exit 1
+  fi
+}
+
+deshacer() {
+  local tar; tar="$(ls -t "$HOME"/.dotfiles-backup-*.tar.gz 2>/dev/null | head -1)"
+  [[ -n $tar ]] || { echo "no hay ninguna copia ~/.dotfiles-backup-*.tar.gz"; exit 1; }
+  echo "Restaurando $tar"
+  # quita los enlaces que apuntan a este repo y devuelve los archivos originales
+  find "$HOME/.config" "$HOME/.local/bin" -maxdepth 5 -lname "$SRC/*" -print -delete 2>/dev/null | sed 's/^/  quitado: /'
+  find "$HOME" -maxdepth 1 -lname "$SRC/*" -print -delete 2>/dev/null | sed 's/^/  quitado: /'
+  tar -C "$HOME" -xzf "$tar" && echo "Listo: configuraciones restauradas. Cierra sesión y vuelve a entrar."
+  exit 0
+}
+
+# ── ajustes de ESTE equipo: pantallas, GPU, fondos, fuentes y audio ────────
+modos_monitores() {   # imprime «nombre modo escala» por pantalla, con la mejor resolución y tasa
+  command -v hyprctl >/dev/null && command -v jq >/dev/null || return 1
+  local j; j="$(hyprctl monitors all -j 2>/dev/null)" || return 1
+  [[ $j == \[* ]] || return 1
+  jq -r '.[] | . as $m
+    | ([.availableModes[]? | capture("(?<w>[0-9]+)x(?<h>[0-9]+)@(?<r>[0-9.]+)")
+        | {w:(.w|tonumber), h:(.h|tonumber), r:(.r|tonumber)}]
+       | sort_by(.w*.h, .r) | last) as $b
+    | if $b then "\($m.name) \($b.w)x\($b.h)@\($b.r|.*100|round/100) \($m.scale)"
+      else "\($m.name) preferred \($m.scale)" end' <<<"$j"
+}
+
+fase_equipo() {
+  quiere equipo || return 0
+  (( ENLACES )) || { fase "Equipo (omitido)"; return 0; }
+  fase "Ajustes de este equipo"
+  local dir="$HOME/.config/hypr" lua="$HOME/.config/hypr/equipo.lua" conf="$HOME/.config/hypr/equipo.conf"
+  [[ -n ${GPU_NVIDIA+x} ]] || detectar_hardware >/dev/null
+  run mkdir -p "$dir"
+  if [[ -f $lua && -f $conf ]]; then
+    ok "pantallas: equipo.lua y equipo.conf ya existen (bórralos y repite --solo equipo para regenerarlos)"
+  else
+    local l_lua="" l_conf="" nombre modo escala
+    local cab="generado por install.sh el $(date +%F) en $(hostname 2>/dev/null || echo este equipo); no está en el repo, edítalo a tu gusto"
+    if modos="$(modos_monitores)" && [[ -n $modos ]]; then
+      while read -r nombre modo escala; do
+        l_lua+="hl.monitor({ output = \"$nombre\", mode = \"$modo\", position = \"auto\", scale = $escala })"$'\n'
+        l_conf+="monitor = $nombre, $modo, auto, $escala"$'\n'
+        nota "pantalla $nombre → $modo (escala $escala)"
+      done <<<"$modos"
+    else
+      l_lua="-- Sin sesión de Hyprland no se pueden leer las pantallas: todas usan su modo preferido."$'\n'"-- Ejecuta ./install.sh --solo equipo desde Hyprland para fijar la mejor tasa de refresco."$'\n'
+      l_conf="${l_lua//--/#}"
+      aviso "no estoy dentro de Hyprland: pantallas en modo automático (repite --solo equipo ya dentro para afinarlas)"
+    fi
+    local nv_conf=""
+    (( GPU_NVIDIA )) && nv_conf=$'env = LIBVA_DRIVER_NAME,nvidia\nenv = GBM_BACKEND,nvidia-drm\nenv = __GLX_VENDOR_LIBRARY_NAME,nvidia\nenv = WLR_NO_HARDWARE_CURSORS,1\n'
+    if (( SIMULAR )); then
+      nota "[sim] escribiría $lua y $conf:"; printf '%s' "$l_lua" | sed 's/^/      /'
+    else
+      [[ -f $lua ]]  || printf -- '-- %s\n%s' "$cab" "$l_lua" >"$lua"
+      [[ -f $conf ]] || printf '# %s\n%s%s' "$cab" "$l_conf" "$nv_conf" >"$conf"
+      ok "pantallas de este equipo en $lua (y equipo.conf para Hyprland sin Lua)"
+    fi
+  fi
+
+  # Fuentes que no están en los repos (DM Serif Display, la hora de hyprlock)
+  if [[ -d $SRC/fonts ]]; then
+    local fu="$HOME/.local/share/fonts" nuevas=0 f
+    while IFS= read -r -d '' f; do
+      local to="$fu/${f#"$SRC"/fonts/}"
+      [[ -f $to ]] && cmp -s "$f" "$to" && continue
+      run install -Dm 644 "$f" "$to"; nuevas=1
+    done < <(find "$SRC/fonts" -type f -print0)
+    (( nuevas )) && { run fc-cache -f "$fu"; ok "fuentes propias instaladas en $fu"; } || ok "fuentes propias ya instaladas"
+  fi
+
+  # Fondos: estado inicial, fondo del bloqueo y el fondo en pantalla si hay sesión
+  local fondo="$HOME/.local/bin/fondo"
+  if [[ -x $fondo ]] && ! (( SIMULAR )); then
+    [[ -f $HOME/.local/state/fondos/bloqueo.png ]] || "$fondo" bloqueo "$HOME/Pictures/wallpapers/lock-torres.png" >>"$LOG" 2>&1 || true
+    [[ -f $HOME/.local/state/fondos/bloqueo.png ]] && ok "fondo del bloqueo listo (cámbialo con la tecla b en el selector)" || aviso "no pude preparar el fondo del bloqueo"
+    if [[ -n ${WAYLAND_DISPLAY:-} ]]; then "$fondo" restaurar >>"$LOG" 2>&1 && ok "fondo puesto con $(command -v awww >/dev/null && echo 'awww (fundido)' || echo swaybg)"; fi
+  fi
+  [[ -f $HOME/Pictures/avatar.png ]] || nota "pon tu foto en ~/Pictures/avatar.png para que salga en el bloqueo"
+
+  # EQ de PipeWire «M1ke EQ»: solo con el DAC USB para el que está hecho
+  if grep -qs 'UACDemo' /proc/asound/cards; then
+    enlazar "$SRC/extras/pipewire/m1ke-eq.conf" "$HOME/.config/pipewire/filter-chain.conf.d/m1ke-eq.conf"
+    if [[ -S ${XDG_RUNTIME_DIR:-/run/user/$UID}/bus ]]; then run systemctl --user enable --now filter-chain.service && ok "EQ «M1ke EQ» activo (DAC USB Jieli detectado)"; fi
+  else
+    nota "EQ M1ke: el DAC USB Jieli no está conectado, no lo activo (extras/pipewire/m1ke-eq.conf)"
+  fi
 }
 
 # ── Zen Browser (perfil con ajustes de rendimiento y tema oscuro) ───────────
@@ -408,7 +526,7 @@ fase_verificar() {
   quiere verificar || return 0
   fase "Verificación"
   local c missing=()
-  for c in hyprland hyprlock hypridle waybar rofi kitty mako swaybg grim slurp wl-copy wl-paste cliphist notify-send nmcli bluetoothctl starship fastfetch zsh pavucontrol; do
+  for c in hyprland hyprlock hypridle waybar rofi kitty mako swaybg quickshell awww zenity magick grim slurp wl-copy wl-paste cliphist notify-send nmcli bluetoothctl starship fastfetch zsh pavucontrol; do
     command -v "$c" >/dev/null || missing+=("$c")
   done
   (( ${#missing[@]} == 0 )) && ok "todos los programas de la sesión están instalados" || aviso "faltan programas: ${missing[*]}"
@@ -420,6 +538,9 @@ fase_verificar() {
   (( bad == 0 )) && ok "todas las configuraciones están en ~/.config"
   en_salida 'JetBrainsMono Nerd' fc-list : family && ok "fuente JetBrainsMono Nerd Font" || aviso "falta JetBrainsMono Nerd Font"
   en_salida '^Inter' fc-list : family && ok "fuente Inter" || aviso "falta la fuente Inter"
+  en_salida 'DM Serif Display' fc-list : family && ok "fuente DM Serif Display (hyprlock)" || aviso "falta DM Serif Display: ./install.sh --solo equipo"
+  [[ -f $HOME/.config/hypr/equipo.lua ]] && ok "equipo.lua con las pantallas de este PC" || aviso "falta ~/.config/hypr/equipo.lua: ./install.sh --solo equipo"
+  [[ -x $HOME/.local/bin/fondo ]] && bash -n "$HOME/.local/bin/fondo" && ok "selector de fondos (Ctrl+Alt+W)" || aviso "falta ~/.local/bin/fondo"
   zsh -n "$SRC/.zshrc" 2>/dev/null && ok ".zshrc sin errores de sintaxis" || fallo ".zshrc tiene errores de sintaxis"
   if command -v Hyprland >/dev/null && en_salida -- '--verify-config' Hyprland --help; then
     if Hyprland --verify-config -c "$SRC/config/hypr/hyprland.lua" >/dev/null 2>&1; then ok "Hyprland acepta hyprland.lua"
@@ -433,9 +554,12 @@ fase_verificar() {
 
 # ── principal ──────────────────────────────────────────────────────────────
 trap 'fallo "error inesperado en la línea $LINENO (mira $LOG)"' ERR
+(( DESHACER )) && deshacer
 preflight
 fase_paquetes
+fase_copia
 fase_enlaces
+fase_equipo
 fase_zen
 fase_shell
 fase_servicios

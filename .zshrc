@@ -82,3 +82,15 @@ claude() {
     command claude "$@"
   fi
 }
+
+# ── atajos del sistema ──
+alias actualizar='sudo pacman -Syu && (command -v yay &>/dev/null && yay -Sua --noconfirm || true)'
+alias limpiar='sudo rm -rf /var/cache/pacman/pkg/download-* && sudo pacman -Sc --noconfirm && rm -rf ~/.cache/thumbnails/* && echo "✔ Limpieza completada."'
+alias espejos='sudo cachyos-rate-mirrors'
+alias puertos='sudo ss -tulpn'
+alias mi-ip='curl -s ifconfig.me && echo'
+
+# Modo bestia (solo si los scripts están en este equipo)
+if command -v bestia-on >/dev/null; then
+  alias bestia-on='sudo bestia-on' bestia-off='sudo bestia-off' bestia-status='sudo bestia-status'
+fi

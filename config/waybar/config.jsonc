@@ -1,40 +1,64 @@
 {
   "layer": "top",
   "position": "top",
-  "height": 32,
+  "height": 34,
   "spacing": 0,
-  "margin-top": 0,
-  "margin-left": 0,
-  "margin-right": 0,
+  "margin-top": 6,
+  "margin-left": 8,
+  "margin-right": 8,
+  "margin-bottom": 0,
   "modules-left": [
-    "custom/logo",
-    "hyprland/workspaces"
+    "group/left"
   ],
   "modules-center": [
     "clock"
   ],
   "modules-right": [
-    "group/metrics",
+    "group/system",
+    "group/mem",
     "group/io",
     "tray"
   ],
-  "group/metrics": {
+
+  // ── Islas ──
+  "group/left": {
+    "orientation": "inherit",
+    "modules": ["custom/logo", "hyprland/workspaces"]
+  },
+  "group/system": {
     "orientation": "inherit",
     "modules": [
-      "custom/icon-cpu",
-      "cpu",
-      "custom/icon-temp",
-      "temperature",
-      "custom/icon-gpu",
-      "custom/gpu",
-      "custom/icon-mem",
-      "memory",
-      "custom/icon-disk",
-      "disk"
+      "custom/icon-cpu", "cpu",
+      "custom/icon-temp", "temperature",
+      "group/extra"
     ]
   },
+  "group/mem": {
+    "orientation": "inherit",
+    "modules": ["custom/icon-mem", "memory"]
+  },
+  // Cajón: GPU y disco solo al pasar el ratón por la flecha
+  "group/extra": {
+    "orientation": "inherit",
+    "drawer": {
+      "transition-duration": 250,
+      "transition-left-to-right": false,
+      "children-class": "extra-child"
+    },
+    "modules": [
+      "custom/more",
+      "custom/icon-gpu", "custom/gpu",
+      "custom/icon-disk", "disk"
+    ]
+  },
+  "group/io": {
+    "orientation": "inherit",
+    "modules": ["custom/icon-vol", "pulseaudio", "custom/icon-net", "custom/net"]
+  },
+
+  // ── Módulos ──
   "custom/logo": {
-    "format": "",
+    "format": "\uf359",
     "tooltip": false,
     "on-click": "rofi -show drun"
   },
@@ -42,12 +66,10 @@
     "format": "{id}",
     "on-click": "activate",
     "all-outputs": false,
-    "persistent-workspaces": {
-      "*": 6
-    }
+    "persistent-workspaces": { "*": 6 }
   },
   "clock": {
-    "format": "<span color='#6b6b6b'>{0:%a %d %b}</span>   {0:%H:%M}",
+    "format": "<span color='#666666' weight='500'>{0:%a %d %b}</span>   {0:%H:%M}",
     "format-alt": "{:%A %d %B %Y}",
     "tooltip-format": "<tt>{calendar}</tt>",
     "calendar": {
@@ -58,37 +80,39 @@
   },
   "cpu": {
     "format": "{usage}%",
-    "interval": 2
+    "interval": 2,
+    "states": { "warning": 80, "critical": 95 }
   },
   "temperature": {
     "hwmon-path": "/sys/class/hwmon/hwmon1/temp1_input",
     "critical-threshold": 85,
+    "format-warning": "{temperatureC}°",
+    "warning-threshold": 75,
     "format": "{temperatureC}°",
     "format-critical": "{temperatureC}°",
     "interval": 3
+  },
+  "memory": {
+    "format": "{percentage}%",
+    "interval": 3,
+    "states": { "warning": 80, "critical": 92 },
+    "tooltip-format": "{used:0.1f}G / {total:0.1f}G"
+  },
+  "custom/more": {
+    "format": "\uf053",
+    "tooltip-format": "GPU y disco"
   },
   "custom/gpu": {
     "exec": "/home/m1ke/.config/waybar/scripts/gpu.sh",
     "return-type": "json",
     "interval": 3
   },
-  "memory": {
-    "format": "{percentage}%",
-    "interval": 3,
-    "tooltip-format": "{used:0.1f}G / {total:0.1f}G"
-  },
   "disk": {
     "path": "/",
     "format": "{percentage_used}%",
     "interval": 30,
+    "states": { "warning": 85, "critical": 95 },
     "tooltip-format": "{used} / {total} en /"
-  },
-  "network": {
-    "format-wifi": "{bandwidthDownBytes}",
-    "format-ethernet": "{bandwidthDownBytes}",
-    "format-disconnected": "off",
-    "interval": 2,
-    "tooltip-format": "{ifname} {ipaddr}  ↓{bandwidthDownBytes}  ↑{bandwidthUpBytes}"
   },
   "pulseaudio": {
     "format": "{volume}%",
@@ -96,62 +120,23 @@
     "on-click": "pavucontrol",
     "scroll-step": 5
   },
-  "backlight": {
-    "format": "{icon} {percent}%",
-    "format-icons": ["󰃞", "󰃟", "󰃠"],
-    "on-scroll-up": "brightnessctl set 5%+",
-    "on-scroll-down": "brightnessctl set 5%-",
-    "tooltip": false
-  },
-  "battery": {
-    "format": "{icon} {capacity}%",
-    "format-charging": "󰂄 {capacity}%",
-    "format-plugged": "󰚥 {capacity}%",
-    "format-icons": ["󰁺", "󰁼", "󰁾", "󰂀", "󰁹"],
-    "states": { "warning": 25, "critical": 12 },
-    "interval": 30,
-    "tooltip-format": "{timeTo} · {power}W"
+  "custom/net": {
+    "exec": "/home/m1ke/.config/waybar/scripts/net.sh",
+    "return-type": "json",
+    "restart-interval": 5,
+    "align": 0
   },
   "tray": {
-    "spacing": 10
+    "spacing": 10,
+    "icon-size": 15
   },
-  "custom/icon-cpu": {
-    "format": " ",
-    "tooltip": false
-  },
-  "custom/icon-temp": {
-    "format": " ",
-    "tooltip": false
-  },
-  "custom/icon-gpu": {
-    "format": " ",
-    "tooltip": false
-  },
-  "custom/icon-mem": {
-    "format": " ",
-    "tooltip": false
-  },
-  "custom/icon-disk": {
-    "format": " ",
-    "tooltip": false
-  },
-  "group/io": {
-    "orientation": "inherit",
-    "modules": [
-      "backlight",
-      "battery",
-      "custom/icon-vol",
-      "pulseaudio",
-      "custom/icon-net",
-      "network"
-    ]
-  },
-  "custom/icon-vol": {
-    "format": " ",
-    "tooltip": false
-  },
-  "custom/icon-net": {
-    "format": " ",
-    "tooltip": false
-  }
+
+  // ── Iconos (SVG vía CSS) ──
+  "custom/icon-cpu":  { "format": " ", "tooltip": false },
+  "custom/icon-temp": { "format": " ", "tooltip": false },
+  "custom/icon-gpu":  { "format": " ", "tooltip": false },
+  "custom/icon-mem":  { "format": " ", "tooltip": false },
+  "custom/icon-disk": { "format": " ", "tooltip": false },
+  "custom/icon-vol":  { "format": " ", "tooltip": false },
+  "custom/icon-net":  { "format": " ", "tooltip": false }
 }

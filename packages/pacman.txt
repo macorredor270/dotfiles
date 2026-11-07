@@ -35,8 +35,14 @@ qt6-wayland
 qt5ct
 qt6ct
 kvantum
-swaybg
 sddm
+swaybg
+
+## Fondos: selector (quickshell), fundidos (awww), diálogo de carpetas y conversión para hyprlock
+quickshell
+awww
+zenity
+imagemagick
 
 ## Barra, lanzador, notificaciones, terminal
 waybar

@@ -1,11 +1,25 @@
-#!/bin/bash
-# Menú de sesión
-opts="bloquear\nsuspender\nreiniciar\napagar\ncerrar sesión"
-sel=$(printf "$opts\n" | rofi -dmenu -i -p "sesión") || exit 0
+#!/usr/bin/env bash
+# Menú de sesión (Super+Esc). Reiniciar, apagar y cerrar sesión piden confirmación.
+tema='window { width: 300px; } listview { lines: 5; }'
+
+elegir() { printf '%s\n' "$@" | rofi -dmenu -i -no-custom -p "$prompt" -theme-str "$tema"; }
+
+confirmar() {
+  local prompt="¿$1?" tema='window { width: 300px; } listview { lines: 2; }'
+  [[ "$(elegir "sí, $1" "no")" == "sí, $1" ]]
+}
+
+salir_hyprland() {
+  # Hyprland ≥ 0.55 con config en Lua: los dispatch son expresiones Lua
+  hyprctl dispatch 'hl.dsp.exit()' >/dev/null 2>&1 || hyprctl dispatch exit >/dev/null 2>&1
+}
+
+prompt="sesión"
+sel="$(elegir bloquear suspender reiniciar apagar "cerrar sesión")" || exit 0
 case "$sel" in
   bloquear)        hyprlock ;;
   suspender)       systemctl suspend ;;
-  reiniciar)       systemctl reboot ;;
-  apagar)          systemctl poweroff ;;
-  "cerrar sesión") hyprctl dispatch exit ;;
+  reiniciar)       confirmar reiniciar && systemctl reboot ;;
+  apagar)          confirmar apagar && systemctl poweroff ;;
+  "cerrar sesión") confirmar "cerrar sesión" && salir_hyprland ;;
 esac

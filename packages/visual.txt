@@ -12,6 +12,13 @@ qt5-wayland
 qt6-wayland
 swaybg
 
+## Fondos: selector (quickshell), fundidos (awww), diálogo de carpetas y conversión para hyprlock
+quickshell
+awww
+zenity
+imagemagick
+jq
+
 ## Barra, lanzador, notificaciones, terminal
 waybar
 rofi

@@ -1,20 +1,35 @@
-font=JetBrainsMono Nerd Font 11
-background-color=#0d0f1a
-text-color=#c9d1f5
-border-color=#5fd3ff
-border-size=2
-border-radius=6
-progress-color=over #5fd3ff
-default-timeout=5000
-width=340
-height=110
-margin=12
-padding=12
+# mako · misma paleta que la waybar y hyprlock: negro casi opaco, borde blanco tenue
+font=Inter Display 11
+format=<b>%s</b>\n%b
+background-color=#121212f0
+text-color=#e6e6e6
+border-color=#ffffff1f
+border-size=1
+border-radius=12
+progress-color=over #ffffff26
+padding=14,16
+margin=10
+outer-margin=6
+width=360
+height=140
 anchor=top-right
+layer=overlay
 icons=1
 max-icon-size=40
+icon-location=left
 max-visible=4
+default-timeout=5000
+group-by=app-name
+
+[urgency=low]
+text-color=#9a9a9a
 
 [urgency=high]
-border-color=#ff6b9d
+border-color=#d0665a
 default-timeout=0
+
+[grouped]
+format=<b>%s</b>  <span color="#6e6e6e">%g</span>\n%b
+
+[mode=no-molestar]
+invisible=1
