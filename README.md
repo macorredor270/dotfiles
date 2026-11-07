@@ -11,7 +11,7 @@
 
 <img src="docs/escritorio.png" alt="Escritorio: Waybar, kitty con fastfetch y prompt starship" width="92%">
 
-<sub>Waybar con iconos SVG propios · kitty + fastfetch · prompt starship de una línea con pastillas</sub>
+<sub>Barra flotante con métricas reales · kitty + fastfetch · prompt starship de una línea con pastillas</sub>
 
 <br><br>
 
@@ -25,6 +25,18 @@
 
 <sub>Selector de fondos (<code>Ctrl + Alt + W</code>): tus carpetas, vista previa, fundido y fondo del bloqueo</sub>
 
+<br><br>
+
+<img src="docs/bloqueo.png" alt="Pantalla de bloqueo hyprlock" width="92%">
+
+<sub>hyprlock: hora en DM Serif Display, fecha, tu avatar (<code>~/Pictures/avatar.png</code>) y campo de cristal</sub>
+
+<br><br>
+
+<img src="docs/sesion.png" alt="Menú de sesión y notificaciones" width="70%">
+
+<sub>Menú de sesión con confirmación (<code>Super + Esc</code>) y notificaciones de mako a juego</sub>
+
 </div>
 
 ---
@@ -34,7 +46,7 @@
 | | |
 |---|---|
 | 🪟 **Hyprland** | Configuración en **Lua** (`hyprland.lua`): atajos, animaciones, reglas de monitor y ventanas. `hyprland.conf` queda de respaldo. |
-| 📊 **Waybar** | Métricas reales de CPU, temperatura, GPU, RAM, disco y red, con iconos SVG propios; batería y brillo para portátiles. |
+| 📊 **Waybar** | Una sola barra flotante casi opaca: 6 escritorios fijos, CPU y temperatura (con GPU y disco desplegables), RAM, audio y red en tiempo real (`net.sh`); batería y brillo en portátiles. |
 | 🔍 **Rofi** | Lanzador, selector de ventanas, portapapeles, emojis, wifi, bluetooth y menú de apagado. |
 | 🖥️ **kitty + zsh + starship** | Prompt de una línea con pastillas, autosugerencias, resaltado de sintaxis, `zoxide`, `fzf` y `fastfetch`. |
 | 🖼️ **Fondos** | Selector propio (quickshell): eliges las carpetas, buscas, pruebas sin guardar, cambia con fundido (`awww`) y recuerda el último. También pone el fondo del bloqueo. |
@@ -67,7 +79,7 @@ Para ver qué haría **sin cambiar nada** (ni pedir `sudo`):
 | Comando | Para qué sirve |
 |---|---|
 | `./install.sh` | **Todo**: paquetes, drivers según tu GPU, enlaces, servicios, tema y ajustes de rendimiento. |
-| `./install.sh --visual` | **Replicar solo el aspecto** en un portátil u otro equipo Arch: 38 paquetes, sin `-Syu`, sin drivers, sin tocar `/etc`. |
+| `./install.sh --visual` | **Replicar solo el aspecto** en un portátil u otro equipo Arch: 44 paquetes, sin `-Syu`, sin drivers, sin tocar `/etc`. |
 | `./install.sh --solo-config` | **No instala nada**: solo enlaza las configuraciones y aplica el tema. Vale en cualquier distro. |
 
 > En un equipo recién instalado, ejecuta antes `sudo pacman -Syu` si usas `--visual`, para no tener la base de datos de paquetes vieja.

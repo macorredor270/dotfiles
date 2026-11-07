@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 # Menú de sesión (Super+Esc). Reiniciar, apagar y cerrar sesión piden confirmación.
 tema='window { width: 300px; } listview { lines: 5; }'
+base='prompt { enabled: false; } element-icon { enabled: false; } element { padding: 8px 12px; }'
 
-elegir() { printf '%s\n' "$@" | rofi -dmenu -i -no-custom -p "$prompt" -theme-str "$tema"; }
+elegir() {
+  printf '%s\n' "$@" | rofi -dmenu -i -no-custom -p "$prompt" \
+    -theme-str "$base entry { placeholder: \"$prompt\"; } $tema"
+}
 
 confirmar() {
   local prompt="¿$1?" tema='window { width: 300px; } listview { lines: 2; }'
