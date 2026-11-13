@@ -36,7 +36,6 @@
 | 🎚️ **EQ «M1ke EQ»** | Ecualizador nativo de PipeWire; solo se activa si está conectado el DAC USB para el que está hecho. |
 | 🎨 **Tema GNOME oscuro** | `adw-gtk3-dark`, iconos Adwaita, cursor Bibata y fuentes Inter + JetBrainsMono Nerd. |
 | 🔊 **PipeWire de baja latencia** | Configuración lista en `config/pipewire`. |
-| 🌐 **Zen Browser afinado** | `user.js` con tema oscuro, decodificación por GPU y ajustes de red y caché. |
 | ⚡ **Rendimiento (opcional)** | BBR, wifi sin ahorro de energía, CPU en `performance` y planificador `scx_lavd`. |
 | 🗃️ **Copia y deshacer** | Antes de tocar nada guarda tus configs en un `.tar.gz`; `./install.sh --deshacer` lo deja todo como estaba. |
 | 🧭 **Instalador con menú** | `./install.sh` abre un menú en la terminal (instalar · reparar · deshacer): muestra el estado de tu equipo, recomienda qué hacer y pide confirmación. |
@@ -166,7 +165,7 @@ Desde la terminal: `fondo poner IMG`, `fondo siguiente`, `fondo carpetas añadir
 | **Copia** | Antes de enlazar, guarda en `~/.dotfiles-backup-FECHA.tar.gz` todo lo que va a tocar (hypr, waybar, rofi, kitty, mako, shell, scripts…). Si la copia falla, no sigue. |
 | **Enlaces** | Enlaza con symlinks cada archivo de `config/` en `~/.config`, más `.zshrc`, `.bashrc`, `local-bin/` y los `.desktop`. Lo que ya existía se guarda en `~/.dotfiles-backup-FECHA/`. |
 | **Equipo** | Genera `~/.config/hypr/equipo.lua` y `equipo.conf` con **tus pantallas a su mejor resolución y tasa de refresco** (leídas de Hyprland) y las variables de NVIDIA si hay NVIDIA. Instala DM Serif Display, prepara el fondo del bloqueo, pone el fondo y activa el EQ si está su DAC. |
-| **Zen / Shell / Servicios** | `user.js` en el perfil de Zen, zsh como shell y los servicios de red, Bluetooth, SDDM, PipeWire y aria2. |
+| **Shell / Servicios** | zsh como shell y los servicios de red, Bluetooth, SDDM, PipeWire y aria2. |
 | **Tema** | `gsettings`: modo oscuro, `adw-gtk3-dark`, iconos Adwaita, cursor Bibata y fuentes. |
 | **Sistema** | Ajustes de `/etc`, cada uno **solo si aplica** a tu equipo (módulo del kernel, wifi, cpufreq, sched_ext). |
 | **Verificación** | Programas (incluidos quickshell, awww, zenity y magick), fuentes (Inter, JetBrainsMono Nerd y DM Serif), enlaces, `equipo.lua`, el script `fondo`, sintaxis de `.zshrc`, `Hyprland --verify-config` y configuración de Rofi. |
@@ -189,12 +188,11 @@ Todo queda registrado en `~/.dotfiles-install.log`.
 dotfiles/
 ├── install.sh          instalador inteligente
 ├── config/             → ~/.config   (hypr, waybar, rofi, kitty, mako, fastfetch, gtk-3.0/4.0, pipewire, systemd/user…)
-├── local-bin/          → ~/.local/bin   (fondo, screenshot, rofi-wifi, rofi-bluetooth, rofi-clipboard, rofi-power, zen-fast…)
+├── local-bin/          → ~/.local/bin   (fondo, screenshot, rofi-wifi, rofi-bluetooth, rofi-clipboard, rofi-power…)
 ├── local-share/        → ~/.local/share/applications   (lanzadores)
 ├── packages/           listas de paquetes: pacman, aur y opcional (Steam, Prism, Wine… no se instalan solos)
 ├── system/             → /etc   (sysctl, NetworkManager, systemd, modprobe) — solo con sudo y solo si aplica
 ├── templates/          archivos con la ruta de tu $HOME (aria2.conf)
-├── zen/                user.js de Zen Browser
 ├── wallpapers/         fondos de pantalla (lock-torres.png es el del bloqueo)
 ├── fonts/              → ~/.local/share/fonts   (DM Serif Display, OFL)
 ├── extras/             piezas que solo se activan si aplican (EQ de PipeWire)

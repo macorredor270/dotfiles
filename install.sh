@@ -534,32 +534,6 @@ fase_equipo() {
   fi
 }
 
-# ── Zen Browser (perfil con ajustes de rendimiento y tema oscuro) ───────────
-perfil_zen() {
-  local ini="$HOME/.config/zen/profiles.ini"
-  [[ -f $ini ]] || return 1
-  awk -F= '
-    /^\[Install/ {inst=1; next}  /^\[/ {inst=0}
-    inst && $1=="Default" {print $2; exit}' "$ini" | head -1 | while read -r p; do echo "$HOME/.config/zen/$p"; done
-}
-fase_zen() {
-  quiere zen || return 0
-  [[ -f "$SRC/zen/user.js" ]] || return 0
-  fase "Zen Browser"
-  if ! command -v zen-browser >/dev/null && ! command -v zen >/dev/null; then nota "Zen no está instalado: salto su user.js"; return 0; fi
-  local p; p="$(perfil_zen || true)"
-  if [[ -z "$p" || ! -d "$p" ]]; then
-    aviso "no encuentro un perfil de Zen: ábrelo una vez y ejecuta ./install.sh --reparar"; return 0
-  fi
-  if [[ -f "$p/user.js" ]] && cmp -s "$SRC/zen/user.js" "$p/user.js"; then ok "user.js de Zen ya aplicado"; return 0; fi
-  if [[ -f "$p/user.js" ]]; then
-    # sin copia del user.js actual no se toca nada: no se pierde lo que tuvieras
-    respaldar "$p/user.js" || { fallo "no pude guardar copia de tu user.js de Zen; no lo he modificado"; return 0; }
-  fi
-  if run install -m 644 "$SRC/zen/user.js" "$p/user.js"; then ok "user.js copiado al perfil de Zen (reinicia Zen)"
-  else fallo "no pude copiar user.js al perfil de Zen ($p): ¿permisos? Detalle en $LOG"; fi
-}
-
 # ── shell ──────────────────────────────────────────────────────────────────
 fase_shell() {
   quiere shell || return 0
@@ -700,7 +674,6 @@ reparar() {
   run mkdir -p "$HOME/.local/state" "$HOME/.local/bin" "$HOME/.local/share/applications"
   paso fase_enlaces   # recrea lo que falte (scripts, lanzadores, avatar…); lo que ya está bien no se toca
   paso fase_equipo    # pantallas, fuentes y audio de este PC (no sobrescribe un equipo.lua que ya exista)
-  paso fase_zen       # user.js de Zen, si está instalado
   if ! (( SIMULAR )); then
     if [[ -x $HOME/.local/bin/fondo ]]; then
       if "$HOME/.local/bin/fondo" restaurar >>"$LOG" 2>&1; then ok "fondo de pantalla y del bloqueo restaurados"
@@ -935,7 +908,7 @@ resumen_final() {
 # ── principal ──────────────────────────────────────────────────────────────
 # Este install.sh tiene que estar entero: un archivo cortado, copiado a medias o de otra versión deja funciones
 # sin definir y fallaría a mitad con un críptico «orden no encontrada». Se avisa antes de tocar nada.
-for f_necesaria in preflight deshacer reparar fase_paquetes fase_copia fase_enlaces fase_equipo fase_zen \
+for f_necesaria in preflight deshacer reparar fase_paquetes fase_copia fase_enlaces fase_equipo \
                    fase_shell fase_servicios fase_tema fase_sistema fase_verificar; do
   if ! declare -F "$f_necesaria" >/dev/null; then
     printf 'install.sh incompleto o de otra versión: falta «%s».\n' "$f_necesaria" >&2
@@ -956,7 +929,6 @@ else
   paso fase_copia
   paso fase_enlaces
   paso fase_equipo
-  paso fase_zen
   paso fase_shell
   paso fase_servicios
   paso fase_tema
