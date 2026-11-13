@@ -60,7 +60,7 @@ alias ff='fastfetch'
 alias upd='sudo pacman -Syu'
 
 # ── Prompt ──
-eval "$(starship init zsh)"
+command -v starship >/dev/null && eval "$(starship init zsh)"
 
 # ── z: saltar a carpetas ya visitadas (z <parte-del-nombre>) ──
 command -v zoxide >/dev/null && eval "$(zoxide init zsh --cmd z)"
@@ -94,3 +94,8 @@ alias mi-ip='curl -s ifconfig.me && echo'
 if command -v bestia-on >/dev/null; then
   alias bestia-on='sudo bestia-on' bestia-off='sudo bestia-off' bestia-status='sudo bestia-status'
 fi
+
+# Composio CLI
+export PATH="$HOME/.local/bin:$PATH"
+alias tv='vlc "$HOME/.local/share/iptv/espana.m3u"'
+command -v fnm >/dev/null && eval "$(fnm env --use-on-cd --shell zsh)"

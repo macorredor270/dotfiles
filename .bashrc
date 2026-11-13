@@ -34,7 +34,7 @@ claude() {
 }
 
 # Added by LM Studio CLI (lms)
-export PATH="$PATH:/home/m1ke/.lmstudio/bin"
+export PATH="$PATH:$HOME/.lmstudio/bin"
 # End of LM Studio CLI section
 
 command -v zoxide >/dev/null && eval "$(zoxide init bash)"
@@ -43,7 +43,7 @@ export DXVK_CONFIG_FILE="$HOME/.config/dxvk/dxvk.conf"
 export PATH="$HOME/src/depot_tools:$PATH"
 
 # Auto-lanzar zsh si estamos en un terminal interactivo y no ya en zsh
-if [ -t 1 ] && [ -z "$ZSH_VERSION" ]; then
+if [ -t 1 ] && [ -z "$ZSH_VERSION" ] && command -v zsh >/dev/null 2>&1; then
   exec zsh
 fi
 
@@ -51,3 +51,5 @@ fi
 if command -v bestia-on >/dev/null; then
   alias bestia-on='sudo bestia-on' bestia-off='sudo bestia-off' bestia-status='sudo bestia-status'
 fi
+# Rust (solo si está instalado en este equipo)
+[ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"

@@ -3,6 +3,8 @@
 #
 #   ./install.sh                  hace todo: actualiza, instala paquetes, enlaza configs, servicios, tema y ajustes
 #   ./install.sh --simular        muestra lo que haría sin cambiar nada (no pide sudo)
+#   ./install.sh --reparar        rehace enlaces rotos (p. ej. si moviste o borraste el repo); no instala nada ni pide sudo
+#   ./install.sh --forzar         repite la instalación aunque ya esté aplicada (si ya está todo, por defecto no hace nada)
 #   ./install.sh --solo FASE      solo una fase: paquetes | copia | enlaces | equipo | zen | shell | servicios | tema | sistema | verificar
 #   ./install.sh --deshacer [COPIA.tar.gz]   quita todo lo instalado y deja tus configs como antes de la primera instalación
 #
@@ -30,9 +32,10 @@ BK="$HOME/.dotfiles-backup-$STAMP"
 LOG="$HOME/.dotfiles-install.log"
 MANIFIESTO="$HOME/.local/state/dotfiles/instalado"   # todo lo que crea el instalador, para poder quitarlo
 ORIGEN_HOME="/home/m1ke"   # ruta que aparece escrita a mano en algunas configs
+APLICADO="$HOME/.local/state/dotfiles/aplicado"   # repo + huella + fecha + opciones de la última instalación completa
 
 VISUAL=0; SIMULAR=0; ACTUALIZAR=1; PAQUETES=1; AUR=1; ENLACES=1; SISTEMA=1; RENDIMIENTO=1; OPCIONALES=0; SOLO=""
-OKN=0; AVISOS=0; FALLOS=0; ENLAZADOS=0
+OKN=0; AVISOS=0; FALLOS=0; ENLAZADOS=0; FORZAR=0; REPARAR=0
 
 # ── mensajes ───────────────────────────────────────────────────────────────
 c_ok=$'\033[32m'; c_warn=$'\033[33m'; c_bad=$'\033[31m'; c_dim=$'\033[2m'; c_off=$'\033[0m'
@@ -56,11 +59,13 @@ apuntar() {   # apuntar RUTA: anota algo creado por el instalador (lo quitará -
 }
 
 # ── argumentos ─────────────────────────────────────────────────────────────
-uso() { sed -n '2,29p' "$0" | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
+uso() { awk 'NR==1{next} /^#/{sub(/^# ?/,""); print; next} {exit}' "$0"; exit "${1:-0}"; }   # imprime la cabecera de comentarios
 DESHACER=0; DESHACER_ARCHIVO=""
 while (( $# )); do
   case "$1" in
     --simular) SIMULAR=1 ;;
+    --forzar) FORZAR=1 ;;
+    --reparar) REPARAR=1; ACTUALIZAR=0; PAQUETES=0; AUR=0; SISTEMA=0; RENDIMIENTO=0 ;;
     --sin-actualizar) ACTUALIZAR=0 ;;
     --sin-paquetes) PAQUETES=0 ;;
     --sin-aur) AUR=0 ;;
@@ -80,11 +85,97 @@ quiere() { [[ -z "$SOLO" || "$SOLO" == "$1" ]]; }   # ¿toca ejecutar esta fase?
 # grep sobre la salida de un comando, sin tuberías: con pipefail, "cmd | grep -q" da falsos negativos por SIGPIPE
 en_salida() { local pat="$1" out; shift; out="$("$@" 2>&1 || true)"; grep -qiE -- "$pat" <<<"$out"; }
 
+# ── ¿ya está aplicado? · enlaces rotos · reparar ───────────────────────────
+es_arch() { ( . /etc/os-release 2>/dev/null; [[ "${ID:-}" == arch || "${ID_LIKE:-}" == *arch* || "${ID:-}" == cachyos ]] ); }
+
+# Con las opciones que se han pedido y lo que de verdad aplica en este equipo (no-Arch no instala paquetes)
+firma() {
+  local p=$PAQUETES s=$SISTEMA
+  es_arch || { p=0; s=0; }
+  echo "P$p S$s R$RENDIMIENTO E$ENLACES A$AUR V$VISUAL O$OPCIONALES"
+}
+
+# «Huella» del contenido del repo: si no cambia, no hay nada nuevo que instalar
+huella() { ( cd "$SRC" && find . -type f -not -path './.git/*' -printf '%P\t%s\t%T@\n' | LC_ALL=C sort | sha256sum | cut -d' ' -f1 ); }
+
+# Un enlace roto apuntaba a una copia vieja del repo (p. ej. ~/Workspace/web/dotfiles/config/hypr/x.conf).
+# Se busca el trozo final de esa ruta dentro de ESTE repo (config/hypr/x.conf) y se imprime la ruta nueva.
+destino_en_repo() {
+  local s="${1#/}"
+  while [[ $s == */* ]]; do
+    s="${s#*/}"
+    if [[ -e $SRC/$s ]]; then printf '%s\n' "$SRC/$s"; return 0; fi
+  done
+  return 1
+}
+enlaces_rotos() {   # enlaces rotos de tu carpeta que apuntaban a otra copia de este repo (no toca los de otras cosas)
+  local l
+  while IFS= read -r l; do
+    if destino_en_repo "$(readlink "$l")" >/dev/null; then printf '%s\n' "$l"; fi
+  done < <(
+    find "$HOME/.config" "$HOME/.local/bin" "$HOME/.local/share/applications" -maxdepth 6 -xtype l 2>/dev/null
+    find "$HOME" -maxdepth 1 -xtype l 2>/dev/null)
+}
+enlaces_ok() {      # ¿está todo lo de este repo en su sitio y sin enlaces rotos?
+  local f rel
+  while IFS= read -r -d '' f; do
+    rel="${f#"$SRC"/config/}"
+    [[ $rel == mimeapps.list ]] && continue
+    [[ -e $HOME/.config/$rel ]] || return 1
+  done < <(find "$SRC/config" -type f -print0)
+  [[ -e $HOME/.zshrc && -e $HOME/.bashrc ]] || return 1
+  for f in "$SRC"/local-bin/*; do
+    if [[ -f $f && ! -e $HOME/.local/bin/${f##*/} ]]; then return 1; fi
+  done
+  [[ -z "$(enlaces_rotos)" ]]
+}
+ya_aplicado() {     # ¿ya se aplicó exactamente esto, desde este mismo sitio, y sigue todo en su sitio?
+  [[ -f $APLICADO ]] || return 1
+  [[ "$(sed -n 1p "$APLICADO")" == "$SRC" ]] || return 1
+  [[ "$(sed -n 2p "$APLICADO")" == "$(huella)" ]] || return 1
+  [[ "$(sed -n 4p "$APLICADO")" == "$(firma)" ]] || return 1
+  enlaces_ok
+}
+marcar_aplicado() {
+  mkdir -p "$(dirname "$APLICADO")"
+  printf '%s\n%s\n%s\n%s\n' "$SRC" "$(huella)" "$(date '+%F %T')" "$(firma)" >"$APLICADO"
+}
+comprobar_aplicado() {   # si ya está todo aplicado lo dice y sale; si no, explica por qué sigue
+  [[ -z $SOLO ]] || return 0
+  [[ -f $APLICADO ]] || return 0
+  if ya_aplicado; then
+    if (( FORZAR )); then nota "ya estaba aplicado; sigo porque pediste --forzar"; return 0; fi
+    if (( SIMULAR )); then nota "ya está aplicado: la simulación enseña igualmente lo que haría"; return 0; fi
+    say ""; say "== Ya está aplicado =="
+    say "  Estos dotfiles se aplicaron el $(sed -n 3p "$APLICADO") desde $SRC y todo sigue en su sitio."
+    say "  No hay nada nuevo que instalar: no he tocado nada."
+    say "    ./install.sh --forzar    repetirlo igualmente"
+    say "    ./install.sh --reparar   rehacer enlaces rotos o que falten"
+    say "    ./install.sh --deshacer  volver a como estaba antes"
+    exit 0
+  fi
+  local previo; previo="$(sed -n 1p "$APLICADO")"
+  if [[ $previo != "$SRC" ]]; then nota "se instalaron antes desde $previo; ahora se enlazan desde $SRC"; fi
+  if [[ "$(sed -n 2p "$APLICADO")" != "$(huella)" ]]; then nota "el repositorio cambió desde la última instalación: se aplica lo nuevo"; fi
+  if [[ "$(sed -n 4p "$APLICADO")" != "$(firma)" ]]; then nota "esta vez has elegido otras opciones que en la última instalación"; fi
+  if ! enlaces_ok; then aviso "faltan configuraciones o hay enlaces rotos: se rehacen (también vale ./install.sh --reparar)"; fi
+  return 0
+}
+
 # ── comprobaciones previas ─────────────────────────────────────────────────
 preflight() {
   fase "Comprobaciones previas"
   if (( EUID == 0 )); then fallo "no lo ejecutes como root: lanza ./install.sh con tu usuario (usa sudo por dentro)"; exit 1; fi
+  if [[ -n ${SUDO_USER:-} ]]; then aviso "lo has lanzado con sudo (usuario $SUDO_USER): ejecútalo sin sudo; pide la contraseña por dentro cuando hace falta"; fi
   : >>"$LOG"
+  # herramientas básicas que usa este script (antes de fallar a medias, se comprueban)
+  local c faltan=()
+  for c in sed find install mktemp readlink tar df stat cmp awk sha256sum; do command -v "$c" >/dev/null || faltan+=("$c"); done
+  if (( ${#faltan[@]} )); then fallo "faltan herramientas básicas: ${faltan[*]} (instala coreutils, findutils, sed, tar y gawk)"; exit 1; fi
+  if (( BASH_VERSINFO[0] < 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] < 4) )); then
+    fallo "hace falta bash 4.4 o superior (tienes $BASH_VERSION)"; exit 1
+  fi
+  if [[ ! -w $HOME ]]; then fallo "no puedo escribir en $HOME"; exit 1; fi
   # shellcheck disable=SC1091
   . /etc/os-release 2>/dev/null || true
   if [[ "${ID:-}" == "arch" || "${ID_LIKE:-}" == *arch* || "${ID:-}" == "cachyos" ]]; then
@@ -96,6 +187,10 @@ preflight() {
   local libre; libre=$(df -BG --output=avail / | tail -1 | tr -dc '0-9')
   if (( libre >= 10 )); then ok "espacio libre en /: ${libre} GB"; else aviso "poco espacio libre en /: ${libre} GB"; fi
   [[ -d "$SRC/config" ]] && ok "repositorio: $SRC" || { fallo "no encuentro $SRC/config"; exit 1; }
+  case "$SRC" in
+    /tmp/*|/var/tmp/*|/run/*|/media/*|/mnt/*|"$HOME"/Descargas/*|"$HOME"/Downloads/*|"$HOME"/.local/share/Trash/*)
+      aviso "el repositorio está en $SRC: las configuraciones se ENLAZAN a esta carpeta y dejarían de cargar si la mueves o la borras. Mejor: git clone https://github.com/macorredor270/dotfiles ~/dotfiles" ;;
+  esac
   if (( PAQUETES || SISTEMA )) && ! (( SIMULAR )) && [[ -z "$SOLO" || "$SOLO" =~ ^(paquetes|sistema|servicios|shell)$ ]]; then
     if curl -fsS -m 8 -o /dev/null https://archlinux.org; then ok "red: archlinux.org responde"
     else aviso "sin red: los pasos que descargan fallarán"; fi
@@ -285,7 +380,14 @@ fase_enlaces() {
   enlazar "$SRC/.bashrc" "$HOME/.bashrc"
   for f in "$SRC"/local-bin/*; do [[ -f $f ]] && enlazar "$f" "$HOME/.local/bin/$(basename "$f")"; done
   for f in "$SRC"/local-share/*.desktop; do [[ -f $f ]] && enlazar "$f" "$HOME/.local/share/applications/$(basename "$f")"; done
-  run mkdir -p "$HOME/Pictures/wallpapers" "$HOME/Pictures/Screenshots" "$HOME/Descargas"
+  run mkdir -p "$HOME/Pictures/wallpapers" "$HOME/Pictures/Screenshots" "$HOME/Descargas" "$HOME/.local/state"
+  # el bloqueo (hyprlock) muestra ~/Pictures/avatar.png: si no hay uno, se crea uno de ejemplo con tu inicial
+  if ! (( SIMULAR )) && [[ ! -e $HOME/Pictures/avatar.png ]] && command -v magick >/dev/null; then
+    local ini="${USER:-u}"
+    if magick -size 256x256 xc:'#2b2b2b' -fill '#d0d0d0' -gravity center -pointsize 120 -annotate 0 "${ini:0:1}" "$HOME/Pictures/avatar.png" 2>/dev/null; then
+      apuntar "$HOME/Pictures/avatar.png"; nota "avatar de ejemplo en ~/Pictures/avatar.png (cámbialo por el tuyo)"
+    fi
+  fi
   if ! (( SIMULAR )); then
     for f in "$SRC"/wallpapers/*; do
       [[ -e $HOME/Pictures/wallpapers/${f##*/} ]] && continue
@@ -314,6 +416,11 @@ fase_copia() {
   quiere copia || { [[ $SOLO == enlaces ]] || return 0; }
   (( ENLACES )) || return 0
   fase "Copia de seguridad"
+  # Solo la de ANTES de la primera instalación: repetir el instalador no acumula copias (lo que se reemplaza
+  # después se aparta en ~/.dotfiles-backup-FECHA/ y --deshacer vuelve a la más antigua)
+  if [[ -f $APLICADO ]] && compgen -G "$HOME/.dotfiles-backup-*.tar.gz" >/dev/null; then
+    ok "ya existe la copia de antes de la primera instalación: no se acumulan más"; return 0
+  fi
   local -a hay=() r; for r in "${RUTAS_COPIA[@]}"; do [[ -e $HOME/$r ]] && hay+=("$r"); done
   # de ~/.local/bin solo los scripts que este repo va a reemplazar (ahí suele haber binarios enormes)
   for r in "$SRC"/local-bin/*; do [[ -e $HOME/.local/bin/${r##*/} ]] && hay+=(".local/bin/${r##*/}"); done
@@ -331,9 +438,16 @@ fase_copia() {
 deshacer() {
   local tar="$DESHACER_ARCHIVO" p n=0
   # por defecto la copia MÁS ANTIGUA: la de antes de instalar estos dotfiles por primera vez
-  [[ -n $tar ]] || tar="$(ls -tr "$HOME"/.dotfiles-backup-*.tar.gz 2>/dev/null | head -1)"
-  [[ -n $tar && -f $tar ]] || { echo "no hay ninguna copia ~/.dotfiles-backup-*.tar.gz"; exit 1; }
-  echo "Restaurando $tar"
+  local sin_copia=0
+  [[ -z $DESHACER_ARCHIVO || -f $DESHACER_ARCHIVO ]] || { echo "no existe la copia $DESHACER_ARCHIVO"; exit 1; }
+  [[ -n $tar ]] || tar="$(ls -tr "$HOME"/.dotfiles-backup-*.tar.gz 2>/dev/null | head -1 || true)"
+  if [[ -z $tar || ! -f $tar ]]; then
+    # se instaló sobre un equipo sin configuraciones previas: no hay nada que devolver, solo se quitan los enlaces
+    [[ -f $MANIFIESTO ]] || { echo "no hay copia ~/.dotfiles-backup-*.tar.gz ni registro de instalación: nada que deshacer"; exit 1; }
+    sin_copia=1; echo "No hay copia previa (se instaló sobre un equipo sin configuraciones): solo se quitan los enlaces de estos dotfiles"
+  else
+    echo "Restaurando $tar"
+  fi
   # 1) quita lo que creó el instalador (enlaces y copias ajustadas), según el registro
   if [[ -f $MANIFIESTO ]]; then
     while IFS= read -r p; do
@@ -350,12 +464,13 @@ deshacer() {
     find "$HOME" -maxdepth 1 -lname "$SRC/*" 2>/dev/null)
   echo "  quitados $n archivos y enlaces de estos dotfiles"
   # 3) devuelve lo que había
-  tar -C "$HOME" -xzf "$tar" || { echo "no pude extraer $tar"; exit 1; }
+  if (( ! sin_copia )); then tar -C "$HOME" -xzf "$tar" || { echo "no pude extraer $tar"; exit 1; }; fi
   # las copias usadas se apartan para que una próxima instalación empiece de cero
   mkdir -p "$HOME/.dotfiles-backups-usadas"
   mv "$HOME"/.dotfiles-backup-*.tar.gz "$HOME/.dotfiles-backups-usadas/" 2>/dev/null || true
-  rm -f "$MANIFIESTO"; rmdir -p --ignore-fail-on-non-empty "$(dirname "$MANIFIESTO")" 2>/dev/null || true
-  echo "Listo: configuraciones restauradas (copias apartadas en ~/.dotfiles-backups-usadas). Cierra sesión y vuelve a entrar."
+  rm -f "$MANIFIESTO" "$APLICADO"; rmdir -p --ignore-fail-on-non-empty "$(dirname "$MANIFIESTO")" 2>/dev/null || true
+  if (( sin_copia )); then echo "Listo: enlaces de estos dotfiles quitados. Cierra sesión y vuelve a entrar."
+  else echo "Listo: configuraciones restauradas (copias apartadas en ~/.dotfiles-backups-usadas). Cierra sesión y vuelve a entrar."; fi
   exit 0
 }
 
@@ -584,26 +699,57 @@ fase_verificar() {
   if command -v rofi >/dev/null; then
     rofi -config "$SRC/config/rofi/config.rasi" -dump-config >/dev/null 2>&1 && ok "rofi lee su configuración" || aviso "rofi no pudo leer config.rasi"
   fi
-  [[ -d $HOME/.local/bin ]] && ok "scripts en ~/.local/bin"
+  local rotos; rotos="$(enlaces_rotos | wc -l)"
+  if (( rotos == 0 )); then ok "sin enlaces rotos"; else aviso "$rotos enlaces rotos (apuntan a otra copia del repo): ./install.sh --reparar"; fi
+  if [[ -d $HOME/.local/bin ]]; then ok "scripts en ~/.local/bin"; fi
+}
+
+# ── reparar: reapunta los enlaces rotos a este repo y recrea lo que falte ───
+reparar() {
+  fase "Reparación de enlaces"
+  local l d n=0
+  while IFS= read -r l; do
+    d="$(destino_en_repo "$(readlink "$l")")" || continue
+    run ln -sfn "$d" "$l"; apuntar "$l"; n=$((n+1))
+  done < <(enlaces_rotos)
+  if (( n )); then ok "enlaces reapuntados a $SRC: $n"; else ok "no había enlaces rotos de estos dotfiles"; fi
+  run mkdir -p "$HOME/.local/state" "$HOME/.local/bin" "$HOME/.local/share/applications"
+  fase_enlaces   # recrea lo que falte (scripts, lanzadores, avatar…); lo que ya está bien no se toca
+  if ! (( SIMULAR )); then
+    if [[ -x $HOME/.local/bin/fondo ]]; then
+      if "$HOME/.local/bin/fondo" restaurar >>"$LOG" 2>&1; then ok "fondo de pantalla y del bloqueo restaurados"
+      else nota "fondo: no hay sesión gráfica ahora, se restaurará al entrar en Hyprland"; fi
+    fi
+    if [[ -f $APLICADO ]]; then   # el repo está ahora aquí: se actualiza dónde y con qué contenido
+      printf '%s\n%s\n%s\n%s\n' "$SRC" "$(huella)" "$(sed -n 3p "$APLICADO")" "$(sed -n 4p "$APLICADO")" >"$APLICADO"
+    fi
+  fi
+  nota "las fuentes y los ajustes de pantalla se rehacen con: ./install.sh --solo equipo"
 }
 
 # ── principal ──────────────────────────────────────────────────────────────
 trap 'fallo "error inesperado en la línea $LINENO (mira $LOG)"' ERR
 (( DESHACER )) && deshacer
+comprobar_aplicado   # si ya está todo aplicado, lo dice y termina sin tocar nada
 preflight
-fase_paquetes
-fase_copia
-fase_enlaces
-fase_equipo
-fase_zen
-fase_shell
-fase_servicios
-fase_tema
-fase_sistema
+if (( REPARAR )); then
+  reparar
+else
+  fase_paquetes
+  fase_copia
+  fase_enlaces
+  fase_equipo
+  fase_zen
+  fase_shell
+  fase_servicios
+  fase_tema
+  fase_sistema
+fi
 fase_verificar
 say ""
 say "== Resumen: $OKN correctos · $AVISOS avisos · $FALLOS fallos =="
 (( SIMULAR )) && say "(simulación: no se ha cambiado nada)"
 say "Registro: $LOG"
 (( FALLOS == 0 )) && say "Listo. Cierra sesión y vuelve a entrar para aplicar tema, shell y servicios." || say "Revisa los FALLO de arriba y el registro."
+if ! (( SIMULAR )) && (( FALLOS == 0 )) && ! (( REPARAR )) && [[ -z $SOLO ]]; then marcar_aplicado; fi
 exit $(( FALLOS > 0 ))

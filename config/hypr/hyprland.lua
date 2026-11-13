@@ -111,6 +111,9 @@ hl.animation({ leaf = "layers",     enabled = true, speed = 1.5, bezier = "snap"
 -- CS2 sin VSync: presentar en cuanto esta listo el frame (tearing), para pasar de 75 FPS
 hl.window_rule({ name = "cs2-immediate", match = { class = "^cs2$" }, immediate = true })
 
+-- AirPods Max Control Center: flotante, centrado y con tamaño exacto
+hl.window_rule({ name = "airpods-max-float", match = { class = "^airpods-max$" }, float = true, center = true, size = { 420, 640 } })
+
 -- Blur también en la barra y el lanzador
 hl.layer_rule({ name = "blur-waybar", match = { namespace = "waybar" }, blur = true, ignore_alpha = 0.3 })  -- ignore_alpha: el blur respeta las esquinas redondeadas
 hl.layer_rule({ name = "blur-rofi",   match = { namespace = "rofi" },   blur = true })

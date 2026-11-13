@@ -47,8 +47,13 @@ aplicar() {   # aplicar IMG MODO DURACION
   if command -v awww >/dev/null && daemon_awww; then
     local r=crop; case "$modo" in ajustar) r=fit ;; centrar) r=no ;; esac
     local fps=60; command -v hyprctl >/dev/null && fps="$(hyprctl monitors -j 2>/dev/null | grep -o '"refreshRate": *[0-9]*' | head -1 | grep -o '[0-9]*$' || echo 60)"
-    awww img "$img" --resize "$r" --fill-color 101010 \
-      --transition-type fade --transition-duration "$dur" --transition-fps "${fps:-60}" >/dev/null 2>&1 || return 1
+    local ok=0 t
+    for t in $(seq 20); do   # al arrancar Hyprland el monitor puede no estar listo: reintentar
+      awww img "$img" --resize "$r" --fill-color 101010 \
+        --transition-type fade --transition-duration "$dur" --transition-fps "${fps:-60}" >/dev/null 2>&1 && { ok=1; break; }
+      sleep 0.5
+    done
+    (( ok )) || return 1
     local viejos; viejos="$(pidof swaybg || true)"; [[ -n $viejos ]] && kill $viejos 2>/dev/null
   else
     local m=fill; case "$modo" in ajustar) m=fit ;; centrar) m=center ;; esac
@@ -67,6 +72,8 @@ poner() {     # poner IMG [MODO] [guardar=1]
   if (( guardar )); then
     aplicar "$img" "$modo" 0.7 || err "no se pudo poner el fondo"
     echo "$img" >"$ESTADO/actual"; echo "$modo" >"$ESTADO/modo"
+    # el bloqueo (Super+L) usa el mismo fondo, oscurecido y desenfocado por hyprlock; se prepara en segundo plano
+    ( bloqueo "$img" >/dev/null 2>&1 & )
   else
     aplicar "$img" "$modo" 0.25 || err "no se pudo poner el fondo"
   fi
@@ -115,7 +122,7 @@ vecino() {    # vecino +1|-1 : siguiente o anterior en la lista, dando la vuelta
 bloqueo() {
   local img; img="$(abs "${1:-$(leer actual)}")"
   [[ -f $img ]] || err "no existe: $img"
-  local tmp="$ESTADO/.bloqueo.tmp.png"
+  local tmp="$ESTADO/.bloqueo.$$.tmp.png"   # único por proceso: dos cambios seguidos no se pisan
   if command -v magick >/dev/null; then
     magick "${img}[0]" -auto-orient -resize '3840x2160>' "png:$tmp" 2>/dev/null || err "no pude convertir $img"
   elif [[ ${img,,} == *.png ]]; then cp -f "$img" "$tmp"

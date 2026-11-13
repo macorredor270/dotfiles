@@ -84,6 +84,15 @@ Para ver qué haría **sin cambiar nada** (ni pedir `sudo`):
 
 > En un equipo recién instalado, ejecuta antes `sudo pacman -Syu` si usas `--visual`, para no tener la base de datos de paquetes vieja.
 
+### Si lo repites, mueves el repositorio o algo se rompe
+
+- **Repetirlo no hace daño ni acumula copias.** Si ya está todo aplicado (mismo repositorio, mismas opciones, nada roto), `install.sh` lo detecta, lo dice y **no toca nada**. Para repetirlo igualmente: `./install.sh --forzar`.
+- **Mover o borrar el repositorio rompe los enlaces**, porque `~/.config` apunta a esa carpeta (la `.zshrc`, Hyprland, Waybar… dejan de cargar). `./install.sh --reparar` reapunta los enlaces rotos a donde esté ahora el repositorio, recrea lo que falte y restaura el fondo y el del bloqueo. No instala nada ni pide `sudo`. Lo mejor: dejarlo siempre en `~/dotfiles`.
+- **Antes de empezar comprueba** bash ≥ 4.4, las herramientas básicas, que puedas escribir en tu carpeta y que el repositorio no esté en una ruta temporal (`/tmp`, `Descargas`, un USB…), donde los enlaces acabarían rotos.
+- **Solo guarda una copia de seguridad**: la de antes de la primera instalación (`--deshacer` vuelve a ella). Si instalaste en un equipo sin configuraciones previas, `--deshacer` simplemente quita los enlaces.
+- **Las shells no fallan en un equipo distinto**: `.zshrc` y `.bashrc` solo cargan `starship`, `zoxide`, `fnm` o Rust si existen, y `.bashrc` solo salta a `zsh` si está instalado.
+- **Avatar del bloqueo**: si no tienes `~/Pictures/avatar.png`, se crea uno de ejemplo con tu inicial (cámbialo por el tuyo).
+
 Más opciones: `--deshacer [COPIA.tar.gz]`, `--solo FASE` (`paquetes`, `copia`, `enlaces`, `equipo`, `zen`, `shell`, `servicios`, `tema`, `sistema`, `verificar`), `--sin-actualizar`, `--sin-paquetes`,
 `--sin-aur`, `--sin-enlaces`, `--sin-sistema`, `--sin-rendimiento` y `--opcionales` (Steam, Prism, Wine, Node, Rust, Podman, PostgreSQL, LibreOffice…).
 
@@ -134,6 +143,7 @@ Más opciones: `--deshacer [COPIA.tar.gz]`, `--solo FASE` (`paquetes`, `copia`, 
 </table>
 
 **Selector de fondos** — `Enter`/clic: poner · `Espacio`/clic derecho: probar sin guardar (`Esc` lo deshace) · `b`/clic central: usarlo en el bloqueo ·
+El fondo elegido **también se usa en el bloqueo** (`Super + L`), oscurecido y con un desenfoque suave que se ajusta en `config/hypr/hyprlock.conf` (`brightness`, `blur_size`, `blur_passes`); con `b` puedes poner otra imagen solo para el bloqueo hasta el siguiente cambio de fondo.
 `m`: rellenar/ajustar/centrar · `r`: al azar · `Tab`: siguiente carpeta · `a`: añadir carpeta (escribe la ruta o pulsa *examinar*) · `s`: subcarpetas · `/`: buscar · `?`: atajos.
 Desde la terminal: `fondo poner IMG`, `fondo siguiente`, `fondo carpetas añadir ~/ruta`, `fondo bloqueo IMG`, `fondo ayuda`.
 
