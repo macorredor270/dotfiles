@@ -1,26 +1,15 @@
 #!/usr/bin/env bash
-# install.sh — instalador inteligente de estos dotfiles (CachyOS / Arch + Hyprland).
+# install.sh — dotfiles (CachyOS / Arch + Hyprland). Tres órdenes, nada más:
 #
-#   ./install.sh                  hace todo: actualiza, instala paquetes, enlaza configs, servicios, tema y ajustes
-#   ./install.sh --simular        muestra lo que haría sin cambiar nada (no pide sudo)
-#   ./install.sh --reparar        rehace enlaces rotos (p. ej. si moviste o borraste el repo); no instala nada ni pide sudo
-#   ./install.sh --forzar         repite la instalación aunque ya esté aplicada (si ya está todo, por defecto no hace nada)
-#   ./install.sh --solo FASE      solo una fase: paquetes | copia | enlaces | equipo | zen | shell | servicios | tema | sistema | verificar
-#   ./install.sh --deshacer [COPIA.tar.gz]   quita todo lo instalado y deja tus configs como antes de la primera instalación
+#   ./install.sh --instalar   instala todo: paquetes, drivers, enlaces de configuración, servicios, tema y ajustes
+#   ./install.sh --reparar    arregla enlaces rotos (p. ej. si moviste o borraste el repo) y rehace los ajustes de este equipo
+#   ./install.sh --deshacer   quita todo lo instalado y deja tus configuraciones como antes de la primera instalación
 #
-# Opciones:
-#   --sin-actualizar   no hace pacman -Syu antes de instalar (cuidado: una base de datos vieja da errores 404)
-#   --sin-paquetes     salta pacman y AUR           --sin-aur          salta solo el AUR
-#   --sin-enlaces      no toca ~/.config            --sin-sistema      no escribe nada en /etc
-#   --sin-rendimiento  no instala los ajustes de rendimiento (sysctl, governor, scx, wifi)
-#   --opcionales       instala también packages/opcional.txt (Steam, Prism, Node, Rust…)
+#   ./install.sh              (sin nada) abre un menú: elige con ↑ ↓ y Enter, con 1 2 3, o escribe instalar / reparar / deshacer
 #
-# Para replicar solo el aspecto en otra máquina (portátil u otra distro):
-#   --visual           modo ligero: solo packages/visual.txt, sin -Syu, sin drivers ni ajustes de /etc
-#   --solo-config      solo enlaza configuraciones y tema; no instala ningún paquete (válido en cualquier distro)
-#
-# Es idempotente: se puede repetir sin romper nada. Antes de tocar nada guarda una copia completa en
-# ~/.dotfiles-backup-FECHA.tar.gz (y lo reemplazado, en ~/.dotfiles-backup-FECHA/). Registro: ~/.dotfiles-install.log
+# Se puede repetir sin miedo: si ya está todo aplicado, lo dice y no toca nada. Sin terminal (sin teclado) solo muestra esta ayuda.
+# Antes de tocar nada guarda una copia en ~/.dotfiles-backup-FECHA.tar.gz (y lo reemplazado, en ~/.dotfiles-backup-FECHA/).
+# En una distro que no es Arch solo enlaza las configuraciones (no instala paquetes ni toca /etc). Registro: ~/.dotfiles-install.log
 #
 # En cada PC genera ~/.config/hypr/equipo.lua y equipo.conf (pantallas con su mejor tasa de refresco,
 # variables de NVIDIA si hace falta): así hyprland.lua/.conf del repo valen en cualquier equipo.
@@ -35,18 +24,24 @@ ORIGEN_HOME="/home/m1ke"   # ruta que aparece escrita a mano en algunas configs
 APLICADO="$HOME/.local/state/dotfiles/aplicado"   # repo + huella + fecha + opciones de la última instalación completa
 
 VISUAL=0; SIMULAR=0; ACTUALIZAR=1; PAQUETES=1; AUR=1; ENLACES=1; SISTEMA=1; RENDIMIENTO=1; OPCIONALES=0; SOLO=""
-OKN=0; AVISOS=0; FALLOS=0; ENLAZADOS=0; FORZAR=0; REPARAR=0
+OKN=0; AVISOS=0; FALLOS=0; ENLAZADOS=0; REPARAR=0; PENDIENTE=0   # PENDIENTE=1: falta un reinicio y repetir --instalar
 
 # ── mensajes ───────────────────────────────────────────────────────────────
-c_ok=$'\033[32m'; c_warn=$'\033[33m'; c_bad=$'\033[31m'; c_dim=$'\033[2m'; c_off=$'\033[0m'
+# Colores solo si la salida es una terminal (en un archivo o una tubería no hay códigos raros) y sin NO_COLOR
+if [[ -t 1 && -z ${NO_COLOR:-} && ${TERM:-dumb} != dumb ]]; then
+  c_ok=$'\033[32m'; c_warn=$'\033[33m'; c_bad=$'\033[31m'; c_dim=$'\033[2m'; c_off=$'\033[0m'
+  c_bold=$'\033[1m'; c_head=$'\033[1;36m'; c_mag=$'\033[1;35m'; c_sel=$'\033[1;30;46m'
+else
+  c_ok=""; c_warn=""; c_bad=""; c_dim=""; c_off=""; c_bold=""; c_head=""; c_mag=""; c_sel=""
+fi
 say()   { printf '%s\n' "$*" | tee -a "$LOG" >/dev/null; printf '%s\n' "$*"; }
-fase()  { say ""; say "== $* =="; }
+fase()  { printf '\n== %s ==\n' "$*" >>"$LOG"; printf '\n%s▌ %s%s\n' "$c_head" "$*" "$c_off"; }
 ok()    { OKN=$((OKN+1));       printf '  %sOK%s     %s\n' "$c_ok" "$c_off" "$*"; printf '  OK     %s\n' "$*" >>"$LOG"; }
 aviso() { AVISOS=$((AVISOS+1)); printf '  %sAVISO%s  %s\n' "$c_warn" "$c_off" "$*"; printf '  AVISO  %s\n' "$*" >>"$LOG"; }
 fallo() { FALLOS=$((FALLOS+1)); printf '  %sFALLO%s  %s\n' "$c_bad" "$c_off" "$*"; printf '  FALLO  %s\n' "$*" >>"$LOG"; }
 nota()  { printf '  %s%s%s\n' "$c_dim" "$*" "$c_off"; }
 
-# Ejecuta un comando, o solo lo muestra en modo --simular.
+# Ejecuta un comando y deja su salida en el registro.
 run() {
   if (( SIMULAR )); then printf '  %s[sim]%s %s\n' "$c_dim" "$c_off" "$*"; return 0; fi
   printf '  $ %s\n' "$*" >>"$LOG"
@@ -61,26 +56,7 @@ apuntar() {   # apuntar RUTA: anota algo creado por el instalador (lo quitará -
 # ── argumentos ─────────────────────────────────────────────────────────────
 uso() { awk 'NR==1{next} /^#/{sub(/^# ?/,""); print; next} {exit}' "$0"; exit "${1:-0}"; }   # imprime la cabecera de comentarios
 DESHACER=0; DESHACER_ARCHIVO=""
-while (( $# )); do
-  case "$1" in
-    --simular) SIMULAR=1 ;;
-    --forzar) FORZAR=1 ;;
-    --reparar) REPARAR=1; ACTUALIZAR=0; PAQUETES=0; AUR=0; SISTEMA=0; RENDIMIENTO=0 ;;
-    --sin-actualizar) ACTUALIZAR=0 ;;
-    --sin-paquetes) PAQUETES=0 ;;
-    --sin-aur) AUR=0 ;;
-    --sin-enlaces) ENLACES=0 ;;
-    --sin-sistema) SISTEMA=0 ;;
-    --sin-rendimiento) RENDIMIENTO=0 ;;
-    --opcionales) OPCIONALES=1 ;;
-    --visual) VISUAL=1; ACTUALIZAR=0; SISTEMA=0; RENDIMIENTO=0 ;;
-    --solo-config) VISUAL=1; ACTUALIZAR=0; PAQUETES=0; AUR=0; SISTEMA=0; RENDIMIENTO=0 ;;
-    --solo) shift; SOLO="${1:-}" ;;
-    --deshacer) DESHACER=1; if [[ ${2:-} == *.tar.gz ]]; then DESHACER_ARCHIVO="$2"; shift; fi ;;
-    -h|--ayuda|--help) uso 0 ;;
-    *) echo "opción desconocida: $1"; uso 2 ;;
-  esac; shift
-done
+if (( $# > 1 )); then echo "solo se admite una orden a la vez"; echo; uso 2; fi
 quiere() { [[ -z "$SOLO" || "$SOLO" == "$1" ]]; }   # ¿toca ejecutar esta fase?
 # grep sobre la salida de un comando, sin tuberías: con pipefail, "cmd | grep -q" da falsos negativos por SIGPIPE
 en_salida() { local pat="$1" out; shift; out="$("$@" 2>&1 || true)"; grep -qiE -- "$pat" <<<"$out"; }
@@ -141,23 +117,19 @@ marcar_aplicado() {
   printf '%s\n%s\n%s\n%s\n' "$SRC" "$(huella)" "$(date '+%F %T')" "$(firma)" >"$APLICADO"
 }
 comprobar_aplicado() {   # si ya está todo aplicado lo dice y sale; si no, explica por qué sigue
-  [[ -z $SOLO ]] || return 0
+  (( REPARAR )) && return 0   # --reparar siempre revisa y rehace lo que falte
   [[ -f $APLICADO ]] || return 0
   if ya_aplicado; then
-    if (( FORZAR )); then nota "ya estaba aplicado; sigo porque pediste --forzar"; return 0; fi
-    if (( SIMULAR )); then nota "ya está aplicado: la simulación enseña igualmente lo que haría"; return 0; fi
     say ""; say "== Ya está aplicado =="
     say "  Estos dotfiles se aplicaron el $(sed -n 3p "$APLICADO") desde $SRC y todo sigue en su sitio."
     say "  No hay nada nuevo que instalar: no he tocado nada."
-    say "    ./install.sh --forzar    repetirlo igualmente"
-    say "    ./install.sh --reparar   rehacer enlaces rotos o que falten"
-    say "    ./install.sh --deshacer  volver a como estaba antes"
+    say "    ./install.sh --reparar   si algo no carga (enlaces rotos, repo movido)"
+    say "    ./install.sh --deshacer  volver a como estaba antes (y luego --instalar para empezar de cero)"
     exit 0
   fi
   local previo; previo="$(sed -n 1p "$APLICADO")"
   if [[ $previo != "$SRC" ]]; then nota "se instalaron antes desde $previo; ahora se enlazan desde $SRC"; fi
   if [[ "$(sed -n 2p "$APLICADO")" != "$(huella)" ]]; then nota "el repositorio cambió desde la última instalación: se aplica lo nuevo"; fi
-  if [[ "$(sed -n 4p "$APLICADO")" != "$(firma)" ]]; then nota "esta vez has elegido otras opciones que en la última instalación"; fi
   if ! enlaces_ok; then aviso "faltan configuraciones o hay enlaces rotos: se rehacen (también vale ./install.sh --reparar)"; fi
   return 0
 }
@@ -283,7 +255,7 @@ fase_paquetes() {
     say "  actualizando el sistema (pacman -Syu): necesario para no mezclar paquetes viejos y nuevos"
     root pacman -Syu --noconfirm && ok "sistema actualizado" || aviso "pacman -Syu falló; sigo, pero pueden salir errores 404"
   else
-    nota "(sin -Syu: si pacman da 404, vuelve a ejecutarlo sin --sin-actualizar)"
+    nota "(sin -Syu: si pacman da 404, ejecuta sudo pacman -Syu y repite ./install.sh --instalar)"
   fi
   local -a lista=()
   mapfile -t lista < <( { leer_lista "$lista_pacman"; (( VISUAL )) || paquetes_hardware; (( OPCIONALES )) && leer_lista "$SRC/packages/opcional.txt"; true; } | sort -u )
@@ -293,7 +265,7 @@ fase_paquetes() {
     if en_salida 'parm:.*modeset' modinfo nvidia_drm; then
       printf 'options nvidia_drm modeset=1 fbdev=1\n' | sudo tee "$conf" >/dev/null && ok "NVIDIA: modeset=1 y fbdev=1 escritos en $conf"
     else
-      aviso "nvidia_drm aún no está disponible (se compila al reiniciar con DKMS): reinicia y repite --solo paquetes"
+      aviso "nvidia_drm aún no está disponible (se compila al reiniciar con DKMS): reinicia y repite ./install.sh --instalar"; PENDIENTE=1
     fi
     grep -qE '^MODULES=.*nvidia_drm' /etc/mkinitcpio.conf 2>/dev/null || nota "consejo: añade nvidia nvidia_modeset nvidia_uvm nvidia_drm a MODULES en /etc/mkinitcpio.conf y ejecuta mkinitcpio -P"
   fi
@@ -495,7 +467,7 @@ fase_equipo() {
   [[ -n ${GPU_NVIDIA+x} ]] || detectar_hardware >/dev/null
   run mkdir -p "$dir"
   if [[ -f $lua && -f $conf ]]; then
-    ok "pantallas: equipo.lua y equipo.conf ya existen (bórralos y repite --solo equipo para regenerarlos)"
+    ok "pantallas: equipo.lua y equipo.conf ya existen (bórralos y ejecuta ./install.sh --reparar para regenerarlos)"
   else
     local l_lua="" l_conf="" nombre modo escala
     local modos cab equipo_nombre
@@ -508,9 +480,9 @@ fase_equipo() {
         nota "pantalla $nombre → $modo (escala $escala)"
       done <<<"$modos"
     else
-      l_lua="-- Sin sesión de Hyprland no se pueden leer las pantallas: todas usan su modo preferido."$'\n'"-- Ejecuta ./install.sh --solo equipo desde Hyprland para fijar la mejor tasa de refresco."$'\n'
+      l_lua="-- Sin sesión de Hyprland no se pueden leer las pantallas: todas usan su modo preferido."$'\n'"-- Ejecuta ./install.sh --reparar desde Hyprland para fijar la mejor tasa de refresco."$'\n'
       l_conf="${l_lua//--/#}"
-      aviso "no estoy dentro de Hyprland: pantallas en modo automático (repite --solo equipo ya dentro para afinarlas)"
+      aviso "no estoy dentro de Hyprland: pantallas en modo automático (ejecuta ./install.sh --reparar ya dentro para afinarlas)"
     fi
     local nv_conf=""
     (( GPU_NVIDIA )) && nv_conf=$'env = LIBVA_DRIVER_NAME,nvidia\nenv = GBM_BACKEND,nvidia-drm\nenv = __GLX_VENDOR_LIBRARY_NAME,nvidia\nenv = WLR_NO_HARDWARE_CURSORS,1\n'
@@ -569,7 +541,7 @@ fase_zen() {
   if ! command -v zen-browser >/dev/null && ! command -v zen >/dev/null; then nota "Zen no está instalado: salto su user.js"; return 0; fi
   local p; p="$(perfil_zen || true)"
   if [[ -z "$p" || ! -d "$p" ]]; then
-    aviso "no encuentro un perfil de Zen: ábrelo una vez y ejecuta ./install.sh --solo zen"; return 0
+    aviso "no encuentro un perfil de Zen: ábrelo una vez y ejecuta ./install.sh --reparar"; return 0
   fi
   if [[ -f "$p/user.js" ]] && cmp -s "$SRC/zen/user.js" "$p/user.js"; then ok "user.js de Zen ya aplicado"; return 0; fi
   [[ -f "$p/user.js" ]] && respaldar "$p/user.js"
@@ -688,8 +660,8 @@ fase_verificar() {
   (( bad == 0 )) && ok "todas las configuraciones están en ~/.config"
   en_salida 'JetBrainsMono Nerd' fc-list : family && ok "fuente JetBrainsMono Nerd Font" || aviso "falta JetBrainsMono Nerd Font"
   en_salida '^Inter' fc-list : family && ok "fuente Inter" || aviso "falta la fuente Inter"
-  en_salida 'DM Serif Display' fc-list : family && ok "fuente DM Serif Display (hyprlock)" || aviso "falta DM Serif Display: ./install.sh --solo equipo"
-  [[ -f $HOME/.config/hypr/equipo.lua ]] && ok "equipo.lua con las pantallas de este PC" || aviso "falta ~/.config/hypr/equipo.lua: ./install.sh --solo equipo"
+  en_salida 'DM Serif Display' fc-list : family && ok "fuente DM Serif Display (hyprlock)" || aviso "falta DM Serif Display: ./install.sh --reparar"
+  [[ -f $HOME/.config/hypr/equipo.lua ]] && ok "equipo.lua con las pantallas de este PC" || aviso "falta ~/.config/hypr/equipo.lua: ./install.sh --reparar"
   [[ -x $HOME/.local/bin/fondo ]] && bash -n "$HOME/.local/bin/fondo" && ok "selector de fondos (Ctrl+Alt+W)" || aviso "falta ~/.local/bin/fondo"
   zsh -n "$SRC/.zshrc" 2>/dev/null && ok ".zshrc sin errores de sintaxis" || fallo ".zshrc tiene errores de sintaxis"
   if command -v Hyprland >/dev/null && en_salida -- '--verify-config' Hyprland --help; then
@@ -715,6 +687,8 @@ reparar() {
   if (( n )); then ok "enlaces reapuntados a $SRC: $n"; else ok "no había enlaces rotos de estos dotfiles"; fi
   run mkdir -p "$HOME/.local/state" "$HOME/.local/bin" "$HOME/.local/share/applications"
   fase_enlaces   # recrea lo que falte (scripts, lanzadores, avatar…); lo que ya está bien no se toca
+  fase_equipo    # pantallas, fuentes y audio de este PC (no sobrescribe un equipo.lua que ya exista)
+  fase_zen       # user.js de Zen, si está instalado
   if ! (( SIMULAR )); then
     if [[ -x $HOME/.local/bin/fondo ]]; then
       if "$HOME/.local/bin/fondo" restaurar >>"$LOG" 2>&1; then ok "fondo de pantalla y del bloqueo restaurados"
@@ -724,13 +698,234 @@ reparar() {
       printf '%s\n%s\n%s\n%s\n' "$SRC" "$(huella)" "$(sed -n 3p "$APLICADO")" "$(sed -n 4p "$APLICADO")" >"$APLICADO"
     fi
   fi
-  nota "las fuentes y los ajustes de pantalla se rehacen con: ./install.sh --solo equipo"
+}
+
+# ── menú interactivo: ./install.sh sin nada, en una terminal ───────────────
+M_NOMBRES=(instalar reparar deshacer salir)
+M_TECLAS=(1 2 3 q)
+M_TITULOS=(Instalar Reparar Deshacer Salir)
+M_TEXTOS=("todo: paquetes, configuración, servicios y tema"
+          "arregla enlaces rotos y ajustes de este equipo"
+          "vuelve a como estaba antes de instalar"
+          "no hacer nada")
+M_ANCHO=54; M_LINEAS=0; M_N=0; M_ESTADO=""; M_RECOMENDADA=-1; M_ELEGIDA=-1
+M_H=""; for ((m_i = 0; m_i < M_ANCHO; m_i++)); do M_H+="─"; done
+
+mp() { printf '%s\n' "$*"; M_N=$((M_N + 1)); }   # imprime una línea del menú y la cuenta (para redibujar encima)
+caja_fila() {   # solo texto ASCII dentro de la caja: así el borde derecho siempre cuadra
+  local t="$1" col="${2:-}" pad=$((M_ANCHO - ${#1}))
+  if (( pad < 0 )); then pad=0; fi
+  mp "  ${c_mag}│${c_off}${col}${t}$(printf '%*s' "$pad" '')${c_off}${c_mag}│${c_off}"
+}
+
+estado_menu() {   # M_ESTADO: cómo está este equipo · M_RECOMENDADA: qué conviene hacer (0 instalar, 1 reparar, -1 nada)
+  local rotos
+  M_RECOMENDADA=-1
+  if [[ ! -f $APLICADO ]]; then
+    M_ESTADO="${c_dim}○ sin instalar todavía${c_off}"; M_RECOMENDADA=0
+  elif ya_aplicado; then
+    M_ESTADO="${c_ok}✔ aplicado el $(sed -n 3p "$APLICADO" | cut -c1-16) · todo en su sitio${c_off}"
+  else
+    rotos="$(enlaces_rotos | wc -l)"
+    if (( rotos > 0 )); then
+      M_ESTADO="${c_warn}⚠ $rotos enlaces rotos (¿moviste el repositorio?)${c_off}"; M_RECOMENDADA=1
+    elif ! enlaces_ok; then
+      M_ESTADO="${c_warn}⚠ faltan configuraciones por enlazar${c_off}"; M_RECOMENDADA=1
+    else
+      M_ESTADO="${c_warn}⚠ el repositorio cambió desde la última instalación${c_off}"; M_RECOMENDADA=0
+    fi
+  fi
+}
+
+menu_dibujar() {   # menu_dibujar SELECCIÓN LO_ESCRITO MENSAJE · se redibuja sobre el dibujo anterior
+  local sel="$1" buf="$2" msg="$3" i rec
+  if (( M_LINEAS > 0 )); then printf '\e[%dA\e[J' "$M_LINEAS"; fi
+  M_N=0
+  mp ""
+  mp "  ${c_mag}╭${M_H}╮${c_off}"
+  caja_fila "   d o t f i l e s   -   i n s t a l a d o r" "$c_bold"
+  caja_fila "   CachyOS / Arch + Hyprland" "$c_dim"
+  mp "  ${c_mag}╰${M_H}╯${c_off}"
+  mp ""
+  mp "  Estado   ${M_ESTADO}"
+  mp ""
+  for i in 0 1 2 3; do
+    rec=" "
+    if (( i == M_RECOMENDADA )); then rec="${c_ok}★${c_off}"; fi
+    if (( i == sel )); then
+      mp "  ${c_sel} ❯ ${M_TECLAS[i]} ${c_off} ${c_bold}$(printf '%-9s' "${M_TITULOS[i]}")${c_off}${rec}  ${M_TEXTOS[i]}"
+    else
+      mp "     ${c_dim}${M_TECLAS[i]}${c_off}  $(printf '%-9s' "${M_TITULOS[i]}")${rec}  ${c_dim}${M_TEXTOS[i]}${c_off}"
+    fi
+  done
+  mp ""
+  mp "  ${c_dim}↑ ↓ mover   Enter elegir   1 2 3 directo   q salir${c_off}"
+  mp "  ${c_dim}o escribe:${c_off} ${c_bold}instalar${c_off}${c_dim} · ${c_off}${c_bold}reparar${c_off}${c_dim} · ${c_off}${c_bold}deshacer${c_off}"
+  mp "  ${c_mag}›${c_off} ${buf}${c_dim}▏${c_off}${msg}"
+  M_LINEAS=$M_N
+}
+
+coincidencia() {   # índice de la orden que empieza por lo escrito (i → instalar, rep → reparar…), o -1
+  local b="${1#--}" i
+  b="${b,,}"
+  if [[ -n $b ]]; then
+    for i in 0 1 2 3; do
+      if [[ ${M_NOMBRES[i]} == "$b"* ]]; then echo "$i"; return 0; fi
+    done
+  fi
+  echo -1
+}
+
+menu_confirmar() {   # menu_confirmar ÍNDICE · enseña qué va a pasar y pide confirmación; 0 = seguir
+  local i="$1" k l lineas=0 def=s
+  local -a txt=()
+  case "$i" in
+    0) if es_arch; then
+         txt=("Instalar va a:" "  • actualizar el sistema e instalar paquetes (pide sudo)"
+              "  • enlazar tus configuraciones desde este repositorio"
+              "  • activar servicios, tema y ajustes de rendimiento")
+       else
+         txt=("Instalar va a enlazar tus configuraciones." "  Esta distro no es Arch: no instala paquetes ni toca /etc.")
+       fi
+       txt+=("Antes guarda una copia de lo que ya tengas.") ;;
+    1) txt=("Reparar va a:" "  • reapuntar los enlaces rotos a este repositorio"
+            "  • rehacer pantallas, fuentes y fondo de este equipo" "No instala nada ni pide sudo.") ;;
+    *) txt=("Deshacer va a:" "  • quitar todo lo que puso el instalador"
+            "  • devolver tus configuraciones a como estaban antes"); def=n ;;
+  esac
+  printf '\n'; lineas=1
+  for l in "${txt[@]}"; do printf '  %s%s%s\n' "$c_bold" "$l" "$c_off"; lineas=$((lineas + 1)); done
+  if [[ $def == s ]]; then printf '  ¿Continuar? [S/n] '; else printf '  %s¿Seguro?%s [s/N] ' "$c_warn" "$c_off"; fi
+  lineas=$((lineas + 1))
+  IFS= read -rsn1 k || k=n
+  if [[ $k == $'\e' ]]; then read -rsn2 -t 0.05 _ || true; fi   # una flecha manda 3 bytes: se descartan los otros 2
+  printf '\n'
+  if [[ $k == [sSyY] ]] || { [[ -z $k ]] && [[ $def == s ]]; }; then return 0; fi
+  printf '\e[%dA\e[J' "$lineas"   # no: borra la pregunta y vuelve al menú
+  return 1
+}
+
+menu_simple() {   # terminal estrecha o sin soporte de pantalla: pregunta en una línea
+  local r i
+  M_ELEGIDA=-1
+  echo; echo "  dotfiles - instalador"; echo
+  echo "    1) instalar   2) reparar   3) deshacer   q) salir"
+  read -r -p "  ¿Qué hago? " r || r=q
+  r="${r,,}"; r="${r#--}"
+  case "$r" in 1) r=instalar ;; 2) r=reparar ;; 3) r=deshacer ;; q|"") r=salir ;; esac
+  for i in 0 1 2 3; do
+    if [[ ${M_NOMBRES[i]} == "$r"* ]]; then M_ELEGIDA=$i; break; fi
+  done
+  if (( M_ELEGIDA < 0 )); then echo "  no entiendo «$r»"; M_ELEGIDA=3; fi
+  if (( M_ELEGIDA < 3 )); then
+    read -r -p "  ¿Seguro? [s/N] " r || r=n
+    if [[ ${r,,} != s* ]]; then M_ELEGIDA=3; fi
+  fi
+}
+
+menu() {   # deja en M_ELEGIDA el índice elegido (3 = salir)
+  local cols rows sel k rest m buf="" msg="" eleccion=-1
+  cols="$(tput cols 2>/dev/null || echo 80)"; rows="$(tput lines 2>/dev/null || echo 24)"
+  # el menú (16 líneas) más la confirmación (7) tiene que caber en pantalla para poder redibujarse encima
+  if (( cols < 70 || rows < 25 )) || [[ ${TERM:-dumb} == dumb ]]; then menu_simple; return 0; fi
+  estado_menu
+  sel=$(( M_RECOMENDADA >= 0 ? M_RECOMENDADA : 0 ))
+  M_LINEAS=0
+  printf '\e[?25l'                                   # oculta el cursor mientras se elige
+  trap 'printf "\e[?25h\n"; exit 130' INT TERM
+  while :; do
+    menu_dibujar "$sel" "$buf" "$msg"; msg=""
+    IFS= read -rsn1 k || { eleccion=3; break; }      # sin entrada (Ctrl-D): salir
+    case "$k" in
+      $'\e')
+        rest=""; read -rsn2 -t 0.05 rest || true
+        case "$rest" in
+          '[A'|'OA') sel=$(( (sel + 3) % 4 )) ;;   # flecha arriba (normal o modo aplicación)
+          '[B'|'OB') sel=$(( (sel + 1) % 4 )) ;;   # flecha abajo
+          '')   if [[ -n $buf ]]; then buf=""; else eleccion=3; fi ;;   # Esc: borra lo escrito, o sale
+        esac ;;
+      '')       # Enter: lo escrito, o la opción marcada
+        if [[ -n $buf ]]; then
+          m="$(coincidencia "$buf")"
+          if (( m >= 0 )); then eleccion=$m; else msg="  ${c_warn}no entiendo «${buf}»${c_off}"; buf=""; fi
+        else
+          eleccion=$sel
+        fi ;;
+      $'\x7f'|$'\b') buf="${buf%?}" ;;
+      [123])    if [[ -z $buf ]]; then eleccion=$((k - 1)); fi ;;
+      [qQjJkK])
+        if [[ -z $buf ]]; then
+          case "$k" in
+            [qQ]) eleccion=3 ;;
+            [jJ]) sel=$(( (sel + 1) % 4 )) ;;
+            *)    sel=$(( (sel + 3) % 4 )) ;;
+          esac
+        else buf+="${k,,}"; fi ;;
+      [A-Za-z-]) buf+="${k,,}" ;;
+    esac
+    if [[ -n $buf ]]; then                           # mientras escribe, marca la orden que coincide
+      m="$(coincidencia "$buf")"
+      if (( m >= 0 )); then sel=$m; fi
+    fi
+    if (( eleccion == 3 )); then break; fi
+    if (( eleccion >= 0 )); then
+      if menu_confirmar "$eleccion"; then break; fi
+      eleccion=-1; buf=""                            # dijo que no: vuelve al menú con lo escrito borrado
+    fi
+  done
+  printf '\e[?25h'; trap - INT TERM
+  M_ELEGIDA=$eleccion
+}
+
+aplicar_orden() {   # ajusta lo que hace el script según la orden
+  case "$1" in
+    instalar) ;;   # instalación completa (los valores por defecto de arriba)
+    reparar)  REPARAR=1; ACTUALIZAR=0; PAQUETES=0; AUR=0; SISTEMA=0; RENDIMIENTO=0 ;;
+    deshacer) DESHACER=1 ;;
+  esac
+}
+elegir_orden() {   # la orden escrita (--instalar o instalar…), o el menú si no se escribió ninguna
+  local a="${1:-}"
+  case "${a#--}" in
+    instalar|reparar|deshacer) aplicar_orden "${a#--}" ;;
+    -h|help|ayuda) uso 0 ;;
+    "")
+      if [[ -t 0 && -t 1 ]]; then
+        menu
+        if (( M_ELEGIDA < 0 || M_ELEGIDA > 2 )); then echo; echo "  No he tocado nada."; exit 0; fi
+        echo
+        aplicar_orden "${M_NOMBRES[M_ELEGIDA]}"
+      else
+        uso 0   # sin terminal no hay a quién preguntar: solo ayuda, nunca instalar por sorpresa
+      fi ;;
+    *) echo "orden desconocida: $a"; echo; uso 2 ;;
+  esac
+}
+
+# ── pantallas de ejecución ─────────────────────────────────────────────────
+cabecera_ejecucion() {
+  local que="instalando"
+  if (( REPARAR )); then que="reparando"; fi
+  printf '== dotfiles · %s ==\n' "$que" >>"$LOG"
+  printf '\n  %s▌ dotfiles%s · %s\n' "$c_mag" "$c_off" "$que"
+}
+resumen_final() {
+  local col="$c_ok" titulo="Todo listo"
+  if (( FALLOS > 0 )); then col="$c_bad"; titulo="Terminó con fallos: revisa los FALLO de arriba"
+  elif (( AVISOS > 0 )); then col="$c_warn"; titulo="Listo, con algunos avisos"; fi
+  printf '== Resumen: %s correctos · %s avisos · %s fallos ==\n' "$OKN" "$AVISOS" "$FALLOS" >>"$LOG"
+  printf '\n  %s▌ %s%s\n' "$col" "$titulo" "$c_off"
+  printf '  %s▌%s %s correctos · %s avisos · %s fallos\n' "$col" "$c_off" "$OKN" "$AVISOS" "$FALLOS"
+  printf '  %s▌%s %sRegistro: %s%s\n' "$col" "$c_off" "$c_dim" "$LOG" "$c_off"
+  if (( FALLOS == 0 )); then printf '\n  Cierra sesión y vuelve a entrar para aplicar tema, shell y servicios.\n'; fi
 }
 
 # ── principal ──────────────────────────────────────────────────────────────
+elegir_orden "${1:-}"   # la orden escrita, o el menú si no se escribió ninguna
 trap 'fallo "error inesperado en la línea $LINENO (mira $LOG)"' ERR
 (( DESHACER )) && deshacer
 comprobar_aplicado   # si ya está todo aplicado, lo dice y termina sin tocar nada
+cabecera_ejecucion
 preflight
 if (( REPARAR )); then
   reparar
@@ -746,10 +941,6 @@ else
   fase_sistema
 fi
 fase_verificar
-say ""
-say "== Resumen: $OKN correctos · $AVISOS avisos · $FALLOS fallos =="
-(( SIMULAR )) && say "(simulación: no se ha cambiado nada)"
-say "Registro: $LOG"
-(( FALLOS == 0 )) && say "Listo. Cierra sesión y vuelve a entrar para aplicar tema, shell y servicios." || say "Revisa los FALLO de arriba y el registro."
-if ! (( SIMULAR )) && (( FALLOS == 0 )) && ! (( REPARAR )) && [[ -z $SOLO ]]; then marcar_aplicado; fi
+resumen_final
+if (( FALLOS == 0 && PENDIENTE == 0 )) && ! (( REPARAR )); then marcar_aplicado; fi
 exit $(( FALLOS > 0 ))

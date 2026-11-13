@@ -1,41 +1,23 @@
 <div align="center">
 
-# 🖤 dotfiles
+<img src="docs/banner.png" alt="dotfiles: un escritorio Hyprland oscuro, limpio y rápido" width="100%">
 
-**Un escritorio Hyprland oscuro, limpio y rápido — instalable con un solo comando.**
+<br>
 
 ![CachyOS](https://img.shields.io/badge/CachyOS%20%2F%20Arch-1793D1?style=for-the-badge&logo=archlinux&logoColor=white)
 ![Hyprland](https://img.shields.io/badge/Hyprland-Wayland-00A6A6?style=for-the-badge)
 ![Waybar](https://img.shields.io/badge/Waybar-barra-1a1a1a?style=for-the-badge)
 ![zsh](https://img.shields.io/badge/zsh%20%2B%20starship-4EAA25?style=for-the-badge&logo=gnubash&logoColor=white)
 
+**Un escritorio completo con un solo comando: `./install.sh`**
+
+[🚀 Instalar](#-instalación) · [📸 Capturas](#-capturas) · [🧠 Cómo funciona](#-cómo-funciona-el-instalador)
+
+<br>
+
 <img src="docs/escritorio.png" alt="Escritorio: Waybar, kitty con fastfetch y prompt starship" width="92%">
 
 <sub>Barra flotante con métricas reales · kitty + fastfetch · prompt starship de una línea con pastillas</sub>
-
-<br><br>
-
-<img src="docs/rofi.png" alt="Lanzador Rofi" width="92%">
-
-<sub>Rofi con iconos, buscador y la misma paleta del escritorio</sub>
-
-<br><br>
-
-<img src="docs/fondos.png" alt="Selector de fondos" width="92%">
-
-<sub>Selector de fondos (<code>Ctrl + Alt + W</code>): tus carpetas, vista previa, fundido y fondo del bloqueo</sub>
-
-<br><br>
-
-<img src="docs/bloqueo.png" alt="Pantalla de bloqueo hyprlock" width="92%">
-
-<sub>hyprlock: hora en DM Serif Display, fecha, tu avatar (<code>~/Pictures/avatar.png</code>) y campo de cristal</sub>
-
-<br><br>
-
-<img src="docs/sesion.png" alt="Menú de sesión y notificaciones" width="70%">
-
-<sub>Menú de sesión con confirmación (<code>Super + Esc</code>) y notificaciones de mako a juego</sub>
 
 </div>
 
@@ -57,6 +39,7 @@
 | 🌐 **Zen Browser afinado** | `user.js` con tema oscuro, decodificación por GPU y ajustes de red y caché. |
 | ⚡ **Rendimiento (opcional)** | BBR, wifi sin ahorro de energía, CPU en `performance` y planificador `scx_lavd`. |
 | 🗃️ **Copia y deshacer** | Antes de tocar nada guarda tus configs en un `.tar.gz`; `./install.sh --deshacer` lo deja todo como estaba. |
+| 🧭 **Instalador con menú** | `./install.sh` abre un menú en la terminal (instalar · reparar · deshacer): muestra el estado de tu equipo, recomienda qué hacer y pide confirmación. |
 
 ---
 
@@ -64,37 +47,57 @@
 
 ```sh
 git clone https://github.com/macorredor270/dotfiles ~/dotfiles
-~/dotfiles/install.sh
+cd ~/dotfiles && ./install.sh
 ```
 
-Y ya está. El instalador actualiza el sistema, instala lo que falta, enlaza las configuraciones, activa los servicios y aplica el tema.
-Para ver qué haría **sin cambiar nada** (ni pedir `sudo`):
+Se abre un **menú en la terminal**: te dice en qué estado está tu equipo y te recomienda qué hacer (`★`).
 
-```sh
-~/dotfiles/install.sh --simular
-```
+<div align="center">
+<table>
+<tr>
+<td width="50%"><img src="docs/instalador.png" alt="Menú del instalador" width="100%"></td>
+<td width="50%"><img src="docs/instalador-confirmar.png" alt="Confirmación antes de instalar" width="100%"></td>
+</tr>
+<tr>
+<td align="center"><sub>Elige con <kbd>↑</kbd> <kbd>↓</kbd> y <kbd>Enter</kbd>, pulsa <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> o escribe la orden</sub></td>
+<td align="center"><sub>Antes de actuar cuenta qué va a hacer y pide confirmación</sub></td>
+</tr>
+</table>
+</div>
 
-### Tres formas de usarlo
+Tres órdenes, nada más:
 
-| Comando | Para qué sirve |
+| Orden | Qué hace |
 |---|---|
-| `./install.sh` | **Todo**: paquetes, drivers según tu GPU, enlaces, servicios, tema y ajustes de rendimiento. |
-| `./install.sh --visual` | **Replicar solo el aspecto** en un portátil u otro equipo Arch: 46 paquetes, sin `-Syu`, sin drivers, sin tocar `/etc`. |
-| `./install.sh --solo-config` | **No instala nada**: solo enlaza las configuraciones y aplica el tema. Vale en cualquier distro. |
+| **Instalar** | **Todo**: actualiza el sistema, instala lo que falta (drivers según tu GPU), enlaza las configuraciones, activa los servicios, aplica el tema y los ajustes de rendimiento. |
+| **Reparar** | **Arregla** enlaces rotos (por ejemplo si moviste o borraste el repositorio), recrea lo que falte y rehace los ajustes de este equipo (pantallas, fuentes, fondo). No instala nada ni pide `sudo`. |
+| **Deshacer** | **Vuelve atrás**: quita todo lo que puso el instalador y devuelve tus configuraciones a como estaban antes de la primera instalación. |
 
-> En un equipo recién instalado, ejecuta antes `sudo pacman -Syu` si usas `--visual`, para no tener la base de datos de paquetes vieja.
-
-### Si lo repites, mueves el repositorio o algo se rompe
-
-- **Repetirlo no hace daño ni acumula copias.** Si ya está todo aplicado (mismo repositorio, mismas opciones, nada roto), `install.sh` lo detecta, lo dice y **no toca nada**. Para repetirlo igualmente: `./install.sh --forzar`.
-- **Mover o borrar el repositorio rompe los enlaces**, porque `~/.config` apunta a esa carpeta (la `.zshrc`, Hyprland, Waybar… dejan de cargar). `./install.sh --reparar` reapunta los enlaces rotos a donde esté ahora el repositorio, recrea lo que falte y restaura el fondo y el del bloqueo. No instala nada ni pide `sudo`. Lo mejor: dejarlo siempre en `~/dotfiles`.
+- **En el menú:** `↑` `↓` + `Enter`, las teclas `1` `2` `3`, o escribe `instalar`, `reparar` o `deshacer` (basta con el principio: `rep`). `q` o `Esc` salen sin tocar nada.
+- **Sin menú** (scripts, SSH sin terminal completa): `./install.sh --instalar`, `--reparar` o `--deshacer`. Sin terminal y sin orden solo muestra la ayuda: nunca instala por sorpresa.
+- **Repetirlo no hace daño.** Si ya está todo aplicado, lo detecta, lo dice y **no toca nada**; tampoco acumula copias de seguridad (guarda solo la de antes de la primera instalación).
+- **Mover o borrar el repositorio rompe los enlaces**, porque `~/.config` apunta a esa carpeta (la `.zshrc`, Hyprland, Waybar… dejan de cargar): **Reparar** los reapunta. Lo mejor es dejarlo siempre en `~/dotfiles`.
 - **Antes de empezar comprueba** bash ≥ 4.4, las herramientas básicas, que puedas escribir en tu carpeta y que el repositorio no esté en una ruta temporal (`/tmp`, `Descargas`, un USB…), donde los enlaces acabarían rotos.
-- **Solo guarda una copia de seguridad**: la de antes de la primera instalación (`--deshacer` vuelve a ella). Si instalaste en un equipo sin configuraciones previas, `--deshacer` simplemente quita los enlaces.
+- **En una distro que no es Arch** solo enlaza las configuraciones: no instala paquetes ni toca `/etc`.
+- Si instalaste en un equipo sin configuraciones previas, **Deshacer** simplemente quita los enlaces.
 - **Las shells no fallan en un equipo distinto**: `.zshrc` y `.bashrc` solo cargan `starship`, `zoxide`, `fnm` o Rust si existen, y `.bashrc` solo salta a `zsh` si está instalado.
 - **Avatar del bloqueo**: si no tienes `~/Pictures/avatar.png`, se crea uno de ejemplo con tu inicial (cámbialo por el tuyo).
+- Los paquetes opcionales (Steam, Prism, Wine, Node, Rust, Podman, PostgreSQL, LibreOffice…) están en `packages/opcional.txt`; no se instalan solos.
 
-Más opciones: `--deshacer [COPIA.tar.gz]`, `--solo FASE` (`paquetes`, `copia`, `enlaces`, `equipo`, `zen`, `shell`, `servicios`, `tema`, `sistema`, `verificar`), `--sin-actualizar`, `--sin-paquetes`,
-`--sin-aur`, `--sin-enlaces`, `--sin-sistema`, `--sin-rendimiento` y `--opcionales` (Steam, Prism, Wine, Node, Rust, Podman, PostgreSQL, LibreOffice…).
+---
+
+## 📸 Capturas
+
+<table>
+<tr>
+<td width="50%"><img src="docs/rofi.png" alt="Lanzador Rofi" width="100%"><br><sub><b>Rofi</b> con iconos, buscador y la misma paleta del escritorio</sub></td>
+<td width="50%"><img src="docs/fondos.png" alt="Selector de fondos" width="100%"><br><sub><b>Selector de fondos</b> (<code>Ctrl + Alt + W</code>): tus carpetas, vista previa, fundido y fondo del bloqueo</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/bloqueo.png" alt="Pantalla de bloqueo hyprlock" width="100%"><br><sub><b>hyprlock</b>: tu fondo oscurecido y desenfocado, hora en DM Serif Display, avatar y campo de cristal</sub></td>
+<td width="50%"><img src="docs/sesion.png" alt="Menú de sesión y notificaciones" width="100%"><br><sub><b>Menú de sesión</b> con confirmación (<code>Super + Esc</code>) y notificaciones de mako a juego</sub></td>
+</tr>
+</table>
 
 ---
 
@@ -173,7 +176,7 @@ Todo queda registrado en `~/.dotfiles-install.log`.
 ### 🔧 Se adapta al equipo donde lo instalas
 
 - **GPU** — las variables de NVIDIA de `hyprland.lua` solo se aplican si el driver propietario está cargado. En AMD o Intel no se tocan: con ellas, la pantalla se quedaría en negro. El módulo de GPU de Waybar lee NVIDIA y AMD, y muestra `n/a` si no hay ninguna.
-- **Pantalla** — `hyprland.lua` no lleva monitores fijos: carga `equipo.lua`, que el instalador escribe en cada PC. Si instalas desde una TTY sin Hyprland, las pantallas quedan en automático; luego, ya dentro, `./install.sh --solo equipo` fija la mejor tasa. Los `.lua`/`.conf` de equipo no están en el repo y nunca se sobrescriben.
+- **Pantalla** — `hyprland.lua` no lleva monitores fijos: carga `equipo.lua`, que el instalador escribe en cada PC. Si instalas desde una TTY sin Hyprland, las pantallas quedan en automático; luego, ya dentro, `./install.sh --reparar` fija la mejor tasa. Los `.lua`/`.conf` de equipo no están en el repo y nunca se sobrescriben.
 - **Portátil** — la barra está pensada para sobremesa (sin batería). Las teclas de brillo sí funcionan si el equipo las tiene (`brightnessctl`).
 - **Temperatura de la CPU** — si `hwmon1` no es la CPU, el instalador busca `k10temp`, `coretemp` o `zenpower` y ajusta la ruta.
 - **Rutas** — si tu usuario no es `m1ke`, los archivos con rutas escritas a mano se copian ya corregidos; el resto sigue enlazado al repo, así que un `git pull` actualiza atajos y estilo sin reinstalar.
@@ -188,14 +191,14 @@ dotfiles/
 ├── config/             → ~/.config   (hypr, waybar, rofi, kitty, mako, fastfetch, gtk-3.0/4.0, pipewire, systemd/user…)
 ├── local-bin/          → ~/.local/bin   (fondo, screenshot, rofi-wifi, rofi-bluetooth, rofi-clipboard, rofi-power, zen-fast…)
 ├── local-share/        → ~/.local/share/applications   (lanzadores)
-├── packages/           listas de paquetes: pacman, aur, visual (modo ligero) y opcional
+├── packages/           listas de paquetes: pacman, aur y opcional (Steam, Prism, Wine… no se instalan solos)
 ├── system/             → /etc   (sysctl, NetworkManager, systemd, modprobe) — solo con sudo y solo si aplica
 ├── templates/          archivos con la ruta de tu $HOME (aria2.conf)
 ├── zen/                user.js de Zen Browser
 ├── wallpapers/         fondos de pantalla (lock-torres.png es el del bloqueo)
 ├── fonts/              → ~/.local/share/fonts   (DM Serif Display, OFL)
 ├── extras/             piezas que solo se activan si aplican (EQ de PipeWire)
-├── docs/               capturas de este README
+├── docs/               banner y capturas de este README
 ├── .zshrc  .bashrc
 ```
 
@@ -203,14 +206,14 @@ dotfiles/
 
 ## ↩️ Deshacer
 
-- **Configuraciones:** `./install.sh --deshacer` quita todo lo que puso el instalador (enlaces, copias ajustadas, fuentes, `equipo.lua`…; lo apunta en `~/.local/state/dotfiles/instalado`) y restaura la copia **más antigua**, la de antes de la primera instalación. Para volver a otra: `./install.sh --deshacer ~/.dotfiles-backup-FECHA.tar.gz`. Las copias usadas se apartan en `~/.dotfiles-backups-usadas/`.
+- **Configuraciones:** `./install.sh --deshacer` quita todo lo que puso el instalador (enlaces, copias ajustadas, fuentes, `equipo.lua`…; lo apunta en `~/.local/state/dotfiles/instalado`) y restaura la copia **más antigua**, la de antes de la primera instalación. Las copias usadas se apartan en `~/.dotfiles-backups-usadas/`.
 - **Rendimiento:** `sudo systemctl disable --now max-performance scx-sched` y borra `/etc/sysctl.d/99-rendimiento.conf`.
 
 ## 📝 Notas
 
 - Lo propio de cada PC (pantallas) va en `~/.config/hypr/equipo.lua`, no en `hyprland.lua`.
 - Hyprland carga `hyprland.lua` si existe; edita siempre ese archivo y deja el `.conf` como respaldo.
-- NVIDIA: tras la primera instalación, reinicia para que DKMS compile el módulo y repite `./install.sh --solo paquetes`.
+- NVIDIA: tras la primera instalación, reinicia para que DKMS compile el módulo y repite `./install.sh --instalar`.
 - No incluye secretos (claves SSH, tokens) ni servicios de proyectos personales.
 
 <div align="center"><sub>Hecho con 🖤 para <b>CachyOS</b> · Hyprland · Wayland</sub></div>
