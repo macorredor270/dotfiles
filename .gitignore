@@ -1,3 +1,4 @@
 .zsh_history
 *.log
 __pycache__/
+HANDOVER.md
