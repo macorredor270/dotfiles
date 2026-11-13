@@ -40,6 +40,14 @@ ok()    { OKN=$((OKN+1));       printf '  %sOK%s     %s\n' "$c_ok" "$c_off" "$*"
 aviso() { AVISOS=$((AVISOS+1)); printf '  %sAVISO%s  %s\n' "$c_warn" "$c_off" "$*"; printf '  AVISO  %s\n' "$*" >>"$LOG"; }
 fallo() { FALLOS=$((FALLOS+1)); printf '  %sFALLO%s  %s\n' "$c_bad" "$c_off" "$*"; printf '  FALLO  %s\n' "$*" >>"$LOG"; }
 nota()  { printf '  %s%s%s\n' "$c_dim" "$*" "$c_off"; }
+# Ejecuta una fase aislada: si algo falla dentro, se cuenta como FALLO con el nombre de la fase y se sigue con las
+# demás (antes un fallo en una fase tumbaba el instalador entero sin resumen)
+paso() {
+  local f="$1" rc=0
+  "$f" || rc=$?
+  if (( rc != 0 )); then fallo "la fase «${f#fase_}» terminó con error (código $rc); sigo con las demás. Detalle en $LOG"; fi
+  return 0
+}
 
 # Ejecuta un comando y deja su salida en el registro.
 run() {
@@ -544,8 +552,12 @@ fase_zen() {
     aviso "no encuentro un perfil de Zen: ábrelo una vez y ejecuta ./install.sh --reparar"; return 0
   fi
   if [[ -f "$p/user.js" ]] && cmp -s "$SRC/zen/user.js" "$p/user.js"; then ok "user.js de Zen ya aplicado"; return 0; fi
-  [[ -f "$p/user.js" ]] && respaldar "$p/user.js"
-  run install -m 644 "$SRC/zen/user.js" "$p/user.js" && ok "user.js copiado al perfil de Zen (reinicia Zen)"
+  if [[ -f "$p/user.js" ]]; then
+    # sin copia del user.js actual no se toca nada: no se pierde lo que tuvieras
+    respaldar "$p/user.js" || { fallo "no pude guardar copia de tu user.js de Zen; no lo he modificado"; return 0; }
+  fi
+  if run install -m 644 "$SRC/zen/user.js" "$p/user.js"; then ok "user.js copiado al perfil de Zen (reinicia Zen)"
+  else fallo "no pude copiar user.js al perfil de Zen ($p): ¿permisos? Detalle en $LOG"; fi
 }
 
 # ── shell ──────────────────────────────────────────────────────────────────
@@ -686,9 +698,9 @@ reparar() {
   done < <(enlaces_rotos)
   if (( n )); then ok "enlaces reapuntados a $SRC: $n"; else ok "no había enlaces rotos de estos dotfiles"; fi
   run mkdir -p "$HOME/.local/state" "$HOME/.local/bin" "$HOME/.local/share/applications"
-  fase_enlaces   # recrea lo que falte (scripts, lanzadores, avatar…); lo que ya está bien no se toca
-  fase_equipo    # pantallas, fuentes y audio de este PC (no sobrescribe un equipo.lua que ya exista)
-  fase_zen       # user.js de Zen, si está instalado
+  paso fase_enlaces   # recrea lo que falte (scripts, lanzadores, avatar…); lo que ya está bien no se toca
+  paso fase_equipo    # pantallas, fuentes y audio de este PC (no sobrescribe un equipo.lua que ya exista)
+  paso fase_zen       # user.js de Zen, si está instalado
   if ! (( SIMULAR )); then
     if [[ -x $HOME/.local/bin/fondo ]]; then
       if "$HOME/.local/bin/fondo" restaurar >>"$LOG" 2>&1; then ok "fondo de pantalla y del bloqueo restaurados"
@@ -921,26 +933,36 @@ resumen_final() {
 }
 
 # ── principal ──────────────────────────────────────────────────────────────
+# Este install.sh tiene que estar entero: un archivo cortado, copiado a medias o de otra versión deja funciones
+# sin definir y fallaría a mitad con un críptico «orden no encontrada». Se avisa antes de tocar nada.
+for f_necesaria in preflight deshacer reparar fase_paquetes fase_copia fase_enlaces fase_equipo fase_zen \
+                   fase_shell fase_servicios fase_tema fase_sistema fase_verificar; do
+  if ! declare -F "$f_necesaria" >/dev/null; then
+    printf 'install.sh incompleto o de otra versión: falta «%s».\n' "$f_necesaria" >&2
+    printf 'Actualiza el repositorio con:  git -C "%s" pull   (o vuelve a clonarlo)\n' "$SRC" >&2
+    exit 1
+  fi
+done
 elegir_orden "${1:-}"   # la orden escrita, o el menú si no se escribió ninguna
-trap 'fallo "error inesperado en la línea $LINENO (mira $LOG)"' ERR
+trap 'fallo "error inesperado en ${FUNCNAME[0]:-el flujo principal} (línea $LINENO): $BASH_COMMAND. Detalle en $LOG"' ERR
 (( DESHACER )) && deshacer
 comprobar_aplicado   # si ya está todo aplicado, lo dice y termina sin tocar nada
 cabecera_ejecucion
 preflight
 if (( REPARAR )); then
-  reparar
+  paso reparar
 else
-  fase_paquetes
-  fase_copia
-  fase_enlaces
-  fase_equipo
-  fase_zen
-  fase_shell
-  fase_servicios
-  fase_tema
-  fase_sistema
+  paso fase_paquetes
+  paso fase_copia
+  paso fase_enlaces
+  paso fase_equipo
+  paso fase_zen
+  paso fase_shell
+  paso fase_servicios
+  paso fase_tema
+  paso fase_sistema
 fi
-fase_verificar
+paso fase_verificar
 resumen_final
 if (( FALLOS == 0 && PENDIENTE == 0 )) && ! (( REPARAR )); then marcar_aplicado; fi
 exit $(( FALLOS > 0 ))
