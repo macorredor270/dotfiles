@@ -24,6 +24,7 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("/usr/lib/polkit-kde-authentication-agent-1")
     hl.exec_cmd("wl-paste --type text --watch cliphist store")
     hl.exec_cmd("wl-paste --type image --watch cliphist store")
+    hl.exec_cmd("~/Horizon/Horizon/jugar-horizon.sh")   -- Horizon al iniciar sesión
 end)
 
 --------------------------------
