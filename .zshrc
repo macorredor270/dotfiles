@@ -1,19 +1,41 @@
-# ── Info del sistema al abrir una terminal (logo escalado a la ventana y redibujado al redimensionar) ──
+# ── Info del sistema al abrir una terminal ──
+# En kitty el logo es una imagen anclada a celdas de texto (placeholders unicode): se mueve y reajusta
+# junto con el texto, así que no se descoloca al redimensionar ni al hacer scroll.
 _ff_img="${XDG_CONFIG_HOME:-$HOME/.config}/fastfetch/logo.png"
+_ff_id=7777                      # id de imagen (se codifica en el color de los placeholders: 0,30,97)
+
+# Fichero con las filas de placeholders ($1 = filas, $2 = columnas) -> imprime su ruta
+_ff_logo_file() {
+  local -a d=(0305 030D 030E 0310 0312 033D 033E 033F 0346 034A 034B 034C 0350 0351 0352 0357 035B 0363 0364 0365 0366 0367 0368 0369 036A 036B 036C 036D 036E 036F 0483 0484)
+  local f=${XDG_RUNTIME_DIR:-/tmp}/ff-logo.$$ r c line ph=$'\U10EEEE'
+  : > $f
+  for (( r=0; r<$1; r++ )); do
+    line=$'\e[38;2;0;30;97m'${ph}${(#)$((16#${d[r+1]}))}${(#)$((16#${d[1]}))}
+    for (( c=1; c<$2; c++ )); do line+=$ph; done
+    print -r -- "$line"$'\e[39m' >> $f
+  done
+  print -r -- $f
+}
+
 _ff_render() {
-  local l c h w
+  local l c h w f
   read -r l c <<< "$(stty size 2>/dev/null)"; l=${l:-24}; c=${c:-80}
   (( c < 50 || l < 9 )) && return 0                # ventana demasiado pequeña: no mostrar nada
   if [[ $TERM == xterm-kitty && -r $_ff_img ]]; then
     h=$(( l - 5 )); (( h > 15 )) && h=15          # alto del logo en filas (máx. 15)
     w=$(( h * 2 ))                                 # una celda es ~2x más alta que ancha
     (( c - w - 4 < 48 )) && { w=$(( c - 52 )); h=$(( w / 2 )); }   # dejar sitio a los datos
+    (( w > 30 )) && { w=30; h=15; }
     if (( h >= 4 )); then
-      local -a args=(--logo "$_ff_img" --logo-type kitty-direct --logo-width $w --logo-height $h --logo-padding-top 0 --logo-padding-right 3)
+      f=$(_ff_logo_file $h $w)
+      printf '\e_Ga=d,d=I,i=%d,q=2\e\\' $_ff_id   # liberar la imagen anterior
+      printf '\e_Ga=T,U=1,f=100,t=f,i=%d,c=%d,r=%d,q=2;%s\e\\' $_ff_id $w $h "$(print -rn -- ${_ff_img:A} | base64 -w0)"
+      local -a args=(--logo "$f" --logo-type file-raw --logo-width $w --logo-height $h --logo-padding-top 0 --logo-padding-right 3)
       if   (( h >= 14 )); then fastfetch $args
       elif (( h >= 8  )); then fastfetch $args -s title:separator:os:kernel:cpu:gpu:memory:disk
       else                     fastfetch $args -s title:os:cpu:memory
       fi
+      rm -f -- $f
       return
     fi
   fi
@@ -29,18 +51,20 @@ if [[ -o interactive && -z "$FASTFETCH_SHOWN" ]]; then
   unset _prev _cur _i
   _ff_render
   print
-  # Mientras no hayas ejecutado ningún comando, redibujar al cambiar el tamaño de la ventana
-  typeset -g _ff_fresh=1
-  _ff_stale() { _ff_fresh=0 }
-  preexec_functions+=(_ff_stale)
+  # Redibujar al cambiar el tamaño SOLO mientras no hayas ejecutado ningún comando
+  # (si ya hay salida de comandos en pantalla no se toca nada: el logo se reajusta con el texto).
+  typeset -g _ff_h0=$HISTCMD _ff_busy=0
   TRAPWINCH() {
-    # Ya hay comandos en pantalla: kitty no recoloca bien la imagen al redimensionar -> quitarla en vez de dejarla suelta
-    (( _ff_fresh )) || { print -n '\e_Ga=d,d=A\e\\'; return 0 }
+    (( HISTCMD == _ff_h0 && ! _ff_busy )) || return 0
+    _ff_busy=1
+    local p q i                                   # esperar a que termine de arrastrarse
+    for i in {1..10}; do p=$(stty size 2>/dev/null); sleep 0.04; q=$(stty size 2>/dev/null); [[ $p == $q ]] && break; done
     zle -I 2>/dev/null
-    print -n '\e_Ga=d,d=A\e\\\e[H\e[2J\e[3J'
+    print -n '\e[H\e[2J\e[3J'
     _ff_render
     print
     zle && zle reset-prompt
+    _ff_busy=0
   }
 fi
 
@@ -99,6 +123,7 @@ alias ff='fastfetch'
 alias upd='sudo pacman -Syu'
 
 # ── Prompt ──
+setopt TRANSIENT_RPROMPT   # quita la pastilla de la hora del prompt de la derecha al ejecutar: así no se descuadra al redimensionar
 command -v starship >/dev/null && eval "$(starship init zsh)"
 
 # ── z: saltar a carpetas ya visitadas (z <parte-del-nombre>) ──
