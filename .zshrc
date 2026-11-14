@@ -65,21 +65,32 @@ command -v starship >/dev/null && eval "$(starship init zsh)"
 # ── z: saltar a carpetas ya visitadas (z <parte-del-nombre>) ──
 command -v zoxide >/dev/null && eval "$(zoxide init zsh --cmd z)"
 
-# ── claude: sin argumentos abre un buscador de sesiones; `claude new` abre una nueva ──
+# ── claude: sin argumentos abre el selector de sesiones (vista previa, ✨ nueva, Ctrl-P solo esta carpeta, Ctrl-A todas); `claude new` abre una nueva.
+#    Perfil MCP automático por carpeta: Unity/Deriva → gamedev, ghidra/reversing → ghidra, resto → ninguno (ahorra tokens) ──
+_claude_mcp() {
+  reply=()
+  case "${1:l}" in
+    *mundo3d*|*deriva*|*unity*)          reply=(--mcp-config "$HOME/claude-config/mcp-profiles/gamedev.mcp.json") ;;
+    *ghidra*|*reversing*|*reverse*)      reply=(--mcp-config "$HOME/claude-config/mcp-profiles/ghidra.mcp.json") ;;
+  esac
+}
 claude() {
   if [[ $# -eq 0 ]]; then
     local sel id cwd
     sel=$(~/.local/bin/claude-sessions | fzf --delimiter=$'\t' --with-nth=3 \
-      --prompt='sesión › ' --height=70% --reverse --border=rounded --info=inline \
-      --header='Enter: reanudar · Esc: cancelar · escribe para buscar' \
+      --prompt='sesión › ' --height=85% --reverse --border=rounded --info=inline \
+      --preview='~/.local/bin/claude-sessions --preview {1}' --preview-window='right:50%:wrap:border-left' \
+      --bind='ctrl-p:reload(~/.local/bin/claude-sessions --here)' --bind='ctrl-a:reload(~/.local/bin/claude-sessions)' \
+      --header='Enter: abrir · Ctrl-P: solo esta carpeta · Ctrl-A: todas · Esc: salir' \
       --color='bg:-1,fg:#d0d4da,hl:#5c9ae6,fg+:#ffffff,bg+:#2a2a2a,hl+:#8ab8f2,prompt:#5c9ae6,pointer:#5c9ae6,info:#6b7280,header:#6b7280,border:#6b7280') || return
     id=${sel%%$'\t'*}
     cwd=$(print -r -- "$sel" | cut -f2)
-    ( cd "$cwd" 2>/dev/null || true; command claude --resume "$id" )
+    ( cd "$cwd" 2>/dev/null || true; _claude_mcp "$PWD"
+      if [[ $id == NEW ]]; then command claude "${reply[@]}"; else command claude "${reply[@]}" --resume "$id"; fi )
   elif [[ $1 == new ]]; then
-    shift; command claude "$@"
+    shift; _claude_mcp "$PWD"; command claude "${reply[@]}" "$@"
   else
-    command claude "$@"
+    _claude_mcp "$PWD"; command claude "${reply[@]}" "$@"
   fi
 }
 
