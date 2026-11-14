@@ -8,7 +8,7 @@ local mod = "SUPER"
 ------------------
 -- Cada PC tiene sus pantallas en equipo.lua (lo genera install.sh y no va al repo).
 -- Si no existe, cualquier pantalla usa su resolución preferida.
-local equipo = os.getenv("HOME") .. "/.config/hypr/equipo.lua"
+local equipo = (os.getenv("XDG_CONFIG_HOME") or (os.getenv("HOME") .. "/.config")) .. "/hypr/equipo.lua"
 local f = io.open(equipo, "r")
 if f then f:close(); dofile(equipo) end
 hl.monitor({ output = "", mode = "preferred", position = "auto", scale = "auto" })
@@ -20,11 +20,11 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("waybar")
     hl.exec_cmd("mako")
     hl.exec_cmd("hypridle")
-    hl.exec_cmd("~/.local/bin/fondo restaurar")   -- último fondo elegido (awww, o swaybg si no está)
+    hl.exec_cmd("fondo restaurar")   -- último fondo elegido (awww, o swaybg si no está)
     hl.exec_cmd("/usr/lib/polkit-kde-authentication-agent-1")
     hl.exec_cmd("wl-paste --type text --watch cliphist store")
     hl.exec_cmd("wl-paste --type image --watch cliphist store")
-    hl.exec_cmd("~/Horizon/Horizon/jugar-horizon.sh")   -- Horizon al iniciar sesión
+    hl.exec_cmd("kitty --class inicio")   -- única app al arrancar: una terminal grande (ver regla "inicio-grande")
 end)
 
 --------------------------------
@@ -110,6 +110,7 @@ hl.animation({ leaf = "border",     enabled = true, speed = 2,   bezier = "snap"
 hl.animation({ leaf = "layers",     enabled = true, speed = 1.5, bezier = "snap", style = "fade" })
 
 -- CS2 sin VSync: presentar en cuanto esta listo el frame (tearing), para pasar de 75 FPS
+hl.window_rule({ name = "inicio-grande", match = { class = "^inicio$" }, maximize = true })
 hl.window_rule({ name = "cs2-immediate", match = { class = "^cs2$" }, immediate = true })
 
 -- AirPods Max Control Center: flotante, centrado y con tamaño exacto
@@ -136,11 +137,11 @@ bind(mod .. " + R",        run("rofi -show run"))
 
 -- Menús y utilidades
 bind(mod .. " + L",            run("hyprlock"))
-bind(mod .. " + SHIFT + V",    run("~/.local/bin/rofi-clipboard"))
+bind(mod .. " + SHIFT + V",    run("rofi-clipboard"))
 bind(mod .. " + period",       run("rofi -modi emoji -show emoji"))
-bind(mod .. " + W",            run("~/.local/bin/rofi-wifi"))
-bind(mod .. " + B",            run("~/.local/bin/rofi-bluetooth"))
-bind(mod .. " + Escape",       run("~/.local/bin/rofi-power"))
+bind(mod .. " + W",            run("rofi-wifi"))
+bind(mod .. " + B",            run("rofi-bluetooth"))
+bind(mod .. " + Escape",       run("rofi-power"))
 
 -- Ventanas
 bind(mod .. " + Q", hl.dsp.window.close())
@@ -167,11 +168,11 @@ bind(mod .. " + mouse_down", hl.dsp.focus({ workspace = "r+1" }))
 bind(mod .. " + mouse_up",   hl.dsp.focus({ workspace = "r-1" }))
 
 -- Capturas: sin editor. Guardan en ~/Pictures/Screenshots y copian al portapapeles
-bind("CTRL + ALT + S",  run("~/.local/bin/screenshot region"))
-bind("CTRL + ALT + K",  run("~/.local/bin/screenshot full"))
-bind("CTRL + ALT + W",  run("~/.local/bin/fondo"))
-bind(mod .. " + SHIFT + W", run("~/.local/bin/fondo aleatorio"))
-bind(mod .. " + S",     run("~/.local/bin/screenshot region"))
+bind("CTRL + ALT + S",  run("screenshot region"))
+bind("CTRL + ALT + K",  run("screenshot full"))
+bind("CTRL + ALT + W",  run("fondo"))
+bind(mod .. " + SHIFT + W", run("fondo aleatorio"))
+bind(mod .. " + S",     run("screenshot region"))
 
 -- Volumen con Ctrl+Alt+flechas (±5%, máximo 100%)
 bind("CTRL + ALT + up",   run("wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+"), { locked = true, repeating = true })
