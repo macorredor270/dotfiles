@@ -1,8 +1,46 @@
-# ── Info del sistema al abrir una terminal  ──
+# ── Info del sistema al abrir una terminal (logo escalado a la ventana y redibujado al redimensionar) ──
+_ff_img="${XDG_CONFIG_HOME:-$HOME/.config}/fastfetch/logo.png"
+_ff_render() {
+  local l c h w
+  read -r l c <<< "$(stty size 2>/dev/null)"; l=${l:-24}; c=${c:-80}
+  (( c < 50 || l < 9 )) && return 0                # ventana demasiado pequeña: no mostrar nada
+  if [[ $TERM == xterm-kitty && -r $_ff_img ]]; then
+    h=$(( l - 5 )); (( h > 15 )) && h=15          # alto del logo en filas (máx. 15)
+    w=$(( h * 2 ))                                 # una celda es ~2x más alta que ancha
+    (( c - w - 4 < 48 )) && { w=$(( c - 52 )); h=$(( w / 2 )); }   # dejar sitio a los datos
+    if (( h >= 4 )); then
+      local -a args=(--logo "$_ff_img" --logo-type kitty-direct --logo-width $w --logo-height $h --logo-padding-top 0 --logo-padding-right 3)
+      if   (( h >= 14 )); then fastfetch $args
+      elif (( h >= 8  )); then fastfetch $args -s title:separator:os:kernel:cpu:gpu:memory:disk
+      else                     fastfetch $args -s title:os:cpu:memory
+      fi
+      return
+    fi
+  fi
+  # Sin kitty o ventana mínima: logo ASCII
+  if (( l >= 22 && c >= 90 )); then fastfetch
+  elif (( l >= 9 )); then fastfetch --logo arch_small --logo-padding-top 0 -s title:separator:os:cpu:memory:disk
+  fi
+}
 if [[ -o interactive && -z "$FASTFETCH_SHOWN" ]]; then
   export FASTFETCH_SHOWN=1
-  fastfetch
+  # Esperar a que Hyprland termine de dimensionar la ventana
+  _prev=""; for _i in {1..20}; do _cur=$(stty size 2>/dev/null); [[ -n $_cur && $_cur == $_prev ]] && break; _prev=$_cur; sleep 0.05; done
+  unset _prev _cur _i
+  _ff_render
   print
+  # Mientras no hayas ejecutado ningún comando, redibujar al cambiar el tamaño de la ventana
+  typeset -g _ff_fresh=1
+  _ff_stale() { _ff_fresh=0 }
+  preexec_functions+=(_ff_stale)
+  TRAPWINCH() {
+    (( _ff_fresh )) || return 0
+    zle -I 2>/dev/null
+    print -n '\e_Ga=d,d=A\e\\\e[H\e[2J\e[3J'
+    _ff_render
+    print
+    zle && zle reset-prompt
+  }
 fi
 
 # ── Historial ──
@@ -77,10 +115,10 @@ _claude_mcp() {
 claude() {
   if [[ $# -eq 0 ]]; then
     local sel id cwd
-    sel=$(~/.local/bin/claude-sessions | fzf --delimiter=$'\t' --with-nth=3 \
+    sel=$(claude-sessions | fzf --delimiter=$'\t' --with-nth=3 \
       --prompt='sesión › ' --height=85% --reverse --border=rounded --info=inline \
-      --preview='~/.local/bin/claude-sessions --preview {1}' --preview-window='right:50%:wrap:border-left' \
-      --bind='ctrl-p:reload(~/.local/bin/claude-sessions --here)' --bind='ctrl-a:reload(~/.local/bin/claude-sessions)' \
+      --preview='claude-sessions --preview {1}' --preview-window='right:50%:wrap:border-left' \
+      --bind='ctrl-p:reload(claude-sessions --here)' --bind='ctrl-a:reload(claude-sessions)' \
       --header='Enter: abrir · Ctrl-P: solo esta carpeta · Ctrl-A: todas · Esc: salir' \
       --color='bg:-1,fg:#d0d4da,hl:#5c9ae6,fg+:#ffffff,bg+:#2a2a2a,hl+:#8ab8f2,prompt:#5c9ae6,pointer:#5c9ae6,info:#6b7280,header:#6b7280,border:#6b7280') || return
     id=${sel%%$'\t'*}
@@ -96,7 +134,7 @@ claude() {
 
 # ── atajos del sistema ──
 alias actualizar='sudo pacman -Syu && (command -v yay &>/dev/null && yay -Sua --noconfirm || true)'
-alias limpiar='sudo rm -rf /var/cache/pacman/pkg/download-* && sudo pacman -Sc --noconfirm && rm -rf ~/.cache/thumbnails/* && echo "✔ Limpieza completada."'
+alias limpiar='sudo rm -rf /var/cache/pacman/pkg/download-* && sudo pacman -Sc --noconfirm && rm -rf "${XDG_CACHE_HOME:-$HOME/.cache}"/thumbnails/* && echo "✔ Limpieza completada."'
 alias espejos='sudo cachyos-rate-mirrors'
 alias puertos='sudo ss -tulpn'
 alias mi-ip='curl -s ifconfig.me && echo'
@@ -108,5 +146,5 @@ fi
 
 # Composio CLI
 export PATH="$HOME/.local/bin:$PATH"
-alias tv='vlc "$HOME/.local/share/iptv/espana.m3u"'
+alias tv='vlc "${XDG_DATA_HOME:-$HOME/.local/share}/iptv/espana.m3u"'
 command -v fnm >/dev/null && eval "$(fnm env --use-on-cd --shell zsh)"
