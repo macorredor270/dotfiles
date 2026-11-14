@@ -65,6 +65,17 @@ aplicar() {   # aplicar IMG MODO DURACION
   return 0
 }
 
+# Sincroniza el fondo con la nueva pestaña de Firefox (fondo personalizado): sobrescribe su archivo
+# en caliente, sin reiniciar Firefox. Solo tiene efecto en pestañas nuevas / al recargar about:newtab.
+firefox_sync() {
+  local img="$1" f tmp
+  for f in "$HOME"/.config/mozilla/firefox/*/wallpaper/library/v1-custom-*; do
+    [[ -f $f ]] || continue
+    tmp="$f.tmp.$$"
+    cp -- "$img" "$tmp" 2>/dev/null && mv -f -- "$tmp" "$f" || rm -f -- "$tmp"
+  done
+}
+
 poner() {     # poner IMG [MODO] [guardar=1]
   local img; img="$(abs "$1")"; local modo="${2:-$(leer modo)}" guardar="${3:-1}"
   [[ -f $img ]] || err "no existe: $img"
@@ -74,6 +85,7 @@ poner() {     # poner IMG [MODO] [guardar=1]
     echo "$img" >"$ESTADO/actual"; echo "$modo" >"$ESTADO/modo"
     # el bloqueo (Super+L) usa el mismo fondo, oscurecido y desenfocado por hyprlock; se prepara en segundo plano
     ( bloqueo "$img" >/dev/null 2>&1 & )
+    ( firefox_sync "$img" >/dev/null 2>&1 & )
   else
     aplicar "$img" "$modo" 0.25 || err "no se pudo poner el fondo"
   fi
