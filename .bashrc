@@ -52,4 +52,4 @@ if command -v bestia-on >/dev/null; then
   alias bestia-on='sudo bestia-on' bestia-off='sudo bestia-off' bestia-status='sudo bestia-status'
 fi
 # Rust (solo si está instalado en este equipo)
-[ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
+[ -f "$HOME/.dev/env.sh" ] && . "$HOME/.dev/env.sh"

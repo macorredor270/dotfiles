@@ -6,7 +6,7 @@ if [[ -o interactive && -z "$FASTFETCH_SHOWN" ]]; then
 fi
 
 # ── Historial ──
-HISTFILE=~/.zsh_history
+if [[ -d ~/.dev/zsh ]]; then HISTFILE=~/.dev/zsh/history; _zcomp=~/.dev/zsh/zcompdump; else HISTFILE=~/.zsh_history; _zcomp=~/.zcompdump; fi
 HISTSIZE=50000
 SAVEHIST=50000
 setopt APPEND_HISTORY SHARE_HISTORY HIST_IGNORE_DUPS HIST_IGNORE_SPACE
@@ -17,7 +17,7 @@ bindkey -e
 
 # ── Completado (+ compatibilidad con completados de bash) ──
 fpath=(/usr/share/zsh/site-functions $fpath)
-autoload -Uz compinit && compinit -C
+autoload -Uz compinit && compinit -C -d "$_zcomp"
 zstyle ':completion:*' menu select
 zstyle ':completion:*' matcher-list 'm:{a-z}={A-Za-z}'
 autoload -Uz bashcompinit && bashcompinit
