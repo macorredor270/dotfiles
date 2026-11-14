@@ -20,3 +20,13 @@ easyeffects
 elisa
 gwenview
 libreoffice-fresh
+## Formateadores de código (usados por fmt-code / nano Alt+F)
+shfmt
+prettier
+ruff
+stylua
+taplo-cli
+yamlfmt
+go
+clang
+rustfmt

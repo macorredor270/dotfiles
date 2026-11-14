@@ -49,8 +49,7 @@ if [[ -o interactive && -z "$FASTFETCH_SHOWN" ]]; then
   # Esperar a que Hyprland termine de dimensionar la ventana
   _prev=""; for _i in {1..20}; do _cur=$(stty size 2>/dev/null); [[ -n $_cur && $_cur == $_prev ]] && break; _prev=$_cur; sleep 0.05; done
   unset _prev _cur _i
-  _ff_render
-  print
+  _ff_render   # la línea en blanco posterior la pone starship (add_newline)
   # Redibujar al cambiar el tamaño SOLO mientras no hayas ejecutado ningún comando
   # (si ya hay salida de comandos en pantalla no se toca nada: el logo se reajusta con el texto).
   typeset -g _ff_h0=$HISTCMD _ff_busy=0
@@ -62,7 +61,6 @@ if [[ -o interactive && -z "$FASTFETCH_SHOWN" ]]; then
     zle -I 2>/dev/null
     print -n '\e[H\e[2J\e[3J'
     _ff_render
-    print
     zle && zle reset-prompt
     _ff_busy=0
   }
@@ -174,3 +172,16 @@ fi
 export PATH="$HOME/.local/bin:$PATH"
 alias tv='vlc "${XDG_DATA_HOME:-$HOME/.local/share}/iptv/espana.m3u"'
 command -v fnm >/dev/null && eval "$(fnm env --use-on-cd --shell zsh)"
+
+# ── Código con colores y formateo (bat, glow, fmt-code) ──
+if command -v bat >/dev/null; then
+  alias cat='bat --style=plain --paging=never'   # cat con colores (en pipes se comporta como cat normal)
+  alias ver='bat'                                 # con números de línea, cabecera y paginador
+  export MANPAGER="sh -c 'col -bx | bat -l man -p'"
+  export MANROFFOPT="-c"
+fi
+command -v glow >/dev/null && alias md='glow -p'  # markdown renderizado con colores
+# formatear archivos de código en el sitio: formatear a.py b.js c.rs ...  (nano: Alt+F)
+formatear() { local f; for f in "$@"; do fmt-code "$f" && print -P "%F{green}✔%f $f"; done; }
+# formatear y mostrar con colores
+fv() { formatear "$@" && bat "$@"; }

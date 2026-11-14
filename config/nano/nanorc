@@ -1,0 +1,53 @@
+# nano — sintaxis de colores + formateo con Alt+F (usa fmt-code). Paleta: la de kitty (azul acero).
+include "/usr/share/nano/*.nanorc"
+include "/usr/share/nano/extra/*.nanorc"
+
+# ── Comportamiento ──
+set linenumbers
+set mouse
+set autoindent
+set tabsize 4
+set tabstospaces
+set smarthome
+set softwrap
+set indicator
+set zap
+set afterends
+set trimblanks
+set historylog
+set positionlog
+set minibar
+set stateflags
+set guidestripe 100
+
+# ── Interfaz (colores de la terminal) ──
+set titlecolor bold,white,blue
+set promptcolor white,blue
+set statuscolor bold,white,blue
+set errorcolor bold,white,red
+set selectedcolor black,brightblue
+set spotlightcolor black,yellow
+set stripecolor ,black
+set numbercolor brightblack
+set keycolor brightblue
+set functioncolor white
+set scrollercolor blue
+
+# ── Formateo: Alt+F (o Ctrl+T y luego formatear) ──
+# fmt-code recibe el archivo temporal de nano; --lang indica el lenguaje porque no tiene extensión
+extendsyntax python     formatter fmt-code --lang py
+extendsyntax javascript formatter fmt-code --lang js
+extendsyntax json       formatter fmt-code --lang json
+extendsyntax css        formatter fmt-code --lang css
+extendsyntax html       formatter fmt-code --lang html
+extendsyntax markdown   formatter fmt-code --lang md
+extendsyntax yaml       formatter fmt-code --lang yaml
+extendsyntax sh         formatter fmt-code --lang sh
+extendsyntax rust       formatter fmt-code --lang rs
+extendsyntax go         formatter fmt-code --lang go
+extendsyntax c          formatter fmt-code --lang cpp
+extendsyntax java       formatter fmt-code --lang java
+extendsyntax m          formatter fmt-code --lang m
+extendsyntax lua        formatter fmt-code --lang lua
+extendsyntax xml        formatter fmt-code --lang xml
+bind M-F formatter main

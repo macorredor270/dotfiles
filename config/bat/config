@@ -1,0 +1,11 @@
+# bat — cat con colores (como VS Code). Tema oscuro compatible con la paleta de kitty.
+--theme="Visual Studio Dark+"
+--style="numbers,changes,header,grid"
+--italic-text=always
+--paging=auto
+--map-syntax="*.jsonc:JSON"
+--map-syntax=".env*:Bash"
+--map-syntax="*.conf:INI"
+--map-syntax="Dockerfile*:Dockerfile"
+--map-syntax="*.lua:Lua"
+--map-syntax="*.qml:QML"

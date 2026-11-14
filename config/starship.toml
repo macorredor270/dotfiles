@@ -1,6 +1,6 @@
 "$schema" = 'https://starship.rs/config-schema.json'
 # Prompt de dos líneas con pastillas. Revertir: cp ~/.config/starship.toml.bak-v2 ~/.config/starship.toml
-add_newline = false
+add_newline = true   # línea en blanco entre comandos: evita que las pastillas se peguen
 format = "$directory${custom.github}${custom.gitlab}$git_branch$git_status$character"
 right_format = "$status$cmd_duration$time"
 command_timeout = 500

@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# fmt-code — formatea un archivo de código en el sitio según su lenguaje.
+# Uso: fmt-code [--lang EXT] ARCHIVO      (nano lo llama con --lang, porque su archivo temporal no tiene extensión)
+# Formatea una copia y solo sobrescribe el original si el formateador termina bien.
+set -u
+export RUST_LOG=off   # taplo es muy hablador
+lang=""
+if [[ ${1:-} == --lang ]]; then lang=${2:?falta el lenguaje}; shift 2; fi
+f=${1:?uso: fmt-code [--lang EXT] ARCHIVO}
+[[ -f $f ]] || { echo "fmt-code: no existe $f" >&2; exit 2; }
+[[ -z $lang ]] && { b=$(basename -- "$f"); lang=${b##*.}; [[ $b == *.* ]] || lang=$b; }
+lang=${lang,,}
+
+case $lang in
+  py|pyi|python)                         cmd=(ruff format --quiet) ; ext=py ;;
+  js|jsx|mjs|cjs|javascript)             cmd=(prettier --write --log-level silent) ; ext=js ;;
+  ts|tsx|mts|cts|typescript)             cmd=(prettier --write --log-level silent) ; ext=ts ;;
+  json|jsonc|json5)                      cmd=(prettier --write --log-level silent) ; ext=json ;;
+  css|scss|less)                         cmd=(prettier --write --log-level silent) ; ext=$lang ;;
+  html|htm|vue|svelte|astro)             cmd=(prettier --write --log-level silent) ; ext=$lang ;;
+  md|markdown|mdx)                       cmd=(prettier --write --log-level silent --prose-wrap preserve) ; ext=md ;;
+  yaml|yml)                              cmd=(yamlfmt) ; ext=yaml ;;
+  graphql|gql)                           cmd=(prettier --write --log-level silent) ; ext=graphql ;;
+  sh|bash|ksh)                           cmd=(shfmt -w -i 2 -ci) ; ext=sh ;;
+  rs|rust)                               cmd=(rustfmt --edition 2021) ; ext=rs ;;
+  go|golang)                             cmd=(gofmt -w) ; ext=go ;;
+  c|h)                                   cmd=(clang-format -i --style=LLVM) ; ext=c ;;
+  cpp|cc|cxx|hpp|hh|hxx|c++)             cmd=(clang-format -i --style=LLVM) ; ext=cpp ;;
+  java)                                  cmd=(clang-format -i --style=Google) ; ext=java ;;
+  cs|csharp)                             cmd=(clang-format -i --style=Microsoft) ; ext=cs ;;
+  m|mm|objc)                             cmd=(clang-format -i --style=LLVM) ; ext=m ;;
+  proto)                                 cmd=(clang-format -i --style=Google) ; ext=proto ;;
+  lua)                                   cmd=(stylua) ; ext=lua ;;
+  toml)                                  cmd=(taplo format) ; ext=toml ;;
+  ex|exs|elixir)                         cmd=(mix format) ; ext=exs ;;
+  xml|svg|xsl|xslt)                      cmd=(xmllint --format --output) ; ext=xml ; xml=1 ;;
+  php)                                   cmd=(php -l) ; ext=php ; lintonly=1 ;;
+  *) echo "fmt-code: sin formateador para '$lang'" >&2; exit 3 ;;
+esac
+
+command -v "${cmd[0]}" >/dev/null || { echo "fmt-code: falta '${cmd[0]}' (instálalo con pacman)" >&2; exit 4; }
+[[ ${lintonly:-} ]] && { echo "fmt-code: '$lang' solo se puede comprobar, no formatear" >&2; exit 3; }
+
+tmp=$(mktemp --suffix=".$ext") || exit 1
+trap 'rm -f -- "$tmp"' EXIT
+cp -- "$f" "$tmp"
+if [[ ${xml:-} ]]; then "${cmd[@]}" "$tmp" "$f" 2>/dev/null > /dev/null && exit 0 || exit 1; fi
+if "${cmd[@]}" "$tmp"; then cat -- "$tmp" > "$f"; else echo "fmt-code: error de sintaxis, archivo sin cambios" >&2; exit 1; fi
