@@ -34,7 +34,8 @@ if [[ -o interactive && -z "$FASTFETCH_SHOWN" ]]; then
   _ff_stale() { _ff_fresh=0 }
   preexec_functions+=(_ff_stale)
   TRAPWINCH() {
-    (( _ff_fresh )) || return 0
+    # Ya hay comandos en pantalla: kitty no recoloca bien la imagen al redimensionar -> quitarla en vez de dejarla suelta
+    (( _ff_fresh )) || { print -n '\e_Ga=d,d=A\e\\'; return 0 }
     zle -I 2>/dev/null
     print -n '\e_Ga=d,d=A\e\\\e[H\e[2J\e[3J'
     _ff_render
